@@ -1,0 +1,39 @@
+# ─── secrets and live data — never commit these ───────────────────
+# The database holds the Google Maps API key and every prospect record.
+# Any database file. Naming them individually is how one slips through —
+# grit_scans.db did exactly that on the first pass.
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+.google_api_key
+.env
+*.pem
+*.key
+
+# Cloudflare tunnel credentials
+.cloudflared/
+*-credentials.json
+
+# ─── operational state, not code ──────────────────────────────────
+suppressed_domains.txt
+outreach_log.csv
+prospects_*.csv
+callsheet_*.html
+sample_report*.html
+emails/
+reports/
+advanced/emails/
+advanced/prospects_*.csv
+advanced/reports/
+
+# ─── build noise ──────────────────────────────────────────────────
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+*.log
+.DS_Store
