@@ -21,6 +21,7 @@ from . import USER_AGENT, __version__
 from .checks import (check_conversion, check_local, check_search, check_speed,
                      check_trust, declared_subresources, detect_stack, finding,
                      parse, render_blocking_count)
+from .render import looks_like_shell, render_html
 from .fetch import (FetchResult, _client, check_sitemap, fetch_page,
                     fetch_secondary_page, normalize_url, probe_subresources)
 
@@ -57,6 +58,26 @@ PLAIN_ORDER = {k: i for i, (k, _) in enumerate(PLAIN_SPOKEN)}
 def grade_for(score: int) -> str:
     return ("A" if score >= 90 else "B" if score >= 80 else
             "C" if score >= 70 else "D" if score >= 60 else "F")
+
+
+# ── Scoring calibration ──────────────────────────────────────────────────────
+# v2.1 raw scores clustered in the high 80s–90s: most sites pass the binary
+# checks, and the deductions that DO fire are diluted by category weighting and
+# by trust/speed sitting near 100 on almost every site. A median local business
+# raw-scores ~85, which makes "your site scored 92" open no conversations.
+#
+# This power curve stretches the scale: it leaves a perfect 100 at 100 and a 0
+# at 0, but pushes the crowded middle down — a median site (~85 raw) lands ~70
+# (an honest "C"), genuinely good sites stay ~90+, and weak ones fall to D/F.
+# It is monotonic, so it never re-ranks two sites. Tune with one number:
+# raise GAMMA to grade harder, set it to 1.0 to disable calibration entirely.
+CALIBRATION_GAMMA = 2.3
+
+
+def calibrate(raw: int) -> int:
+    """Map a raw 0–100 category score onto the calibrated scale."""
+    x = max(0, min(100, raw)) / 100
+    return round(100 * (x ** CALIBRATION_GAMMA))
 
 
 SEV_RANK = {"critical": 0, "serious": 1, "warning": 2, "notice": 3}
@@ -137,6 +158,23 @@ def analyze(url: str, deep: bool = True,
                            "it's the easiest pitch on the list.",
             }
 
+        raw_html = res.html
+        rendered = False
+        if looks_like_shell(raw_html):
+            dom = render_html(res.final_url or url)
+            if dom and not looks_like_shell(dom):
+                res.html = dom          # grade what a visitor actually sees
+                rendered = True
+            else:
+                return {
+                    "ok": False, "url": url, "host": res.host or url,
+                    "error": "This site builds its pages with JavaScript and "
+                             "we couldn't render it, so we can't grade it "
+                             "honestly. Check it by hand.",
+                    "verdict": "Skipped — reading the empty shell would "
+                               "produce false findings.",
+                }
+
         soup = parse(res.html)
         base = res.final_url
 
@@ -166,7 +204,8 @@ def analyze(url: str, deep: bool = True,
             f["category"] = "marketing"
             findings_all.append(f)
 
-        overall = round(sum(cat_scores[k] * w for k, w in WEIGHTS.items()))
+        cal_scores = {k: calibrate(v) for k, v in cat_scores.items()}
+        overall = round(sum(cal_scores[k] * w for k, w in WEIGHTS.items()))
 
         ranked = sorted(findings_all,
                         key=lambda f: (SEV_RANK[f["severity"]], -f["points"]))
@@ -196,13 +235,14 @@ def analyze(url: str, deep: bool = True,
             "overall": overall,
             "grade": grade_for(overall),
             "verdict": _verdict(res.host, overall, top),
-            "scores": {k: {"label": LABELS[k], "score": cat_scores[k]}
+            "scores": {k: {"label": LABELS[k], "score": cal_scores[k]}
                        for k in WEIGHTS},
             "priorities": ranked[:3],
             "findings": ranked,
             "metrics": metrics,
             "stack": stack,
             "opening_line": _opening_line(res.host, findings_all, metrics),
+            "rendered_js": rendered,
             "pages_checked": 1 + (1 if contact_page and contact_page.ok else 0),
             "measurement_note": (
                 "Speed measured server-side from a fast connection; real "

@@ -25,7 +25,13 @@ def grade_color(score) -> str:
            "#fab219" if s >= 70 else "#ec835a" if s >= 60 else "#d03b3b"
 
 
-def render_report(d: dict, brand: str = "The Watson Factor") -> str:
+def render_report(d: dict, brand: str = "The Watson Factor",
+                  pdf_url: str | None = None, logo: str = "",
+                  contact: str = "") -> str:
+    """`logo` is a data: URI of the business's real logo (the one uploaded
+    on the Social tab) - Daniel, 2026-09-26: "the real logo needs to be put
+    on the PDF going out through the system." Empty = the JG mark.
+    `contact` is the line under the name: phone · site."""
     if not d.get("ok"):
         return _shell(
             f"Site check — {esc(d.get('host', ''))}",
@@ -34,7 +40,7 @@ def render_report(d: dict, brand: str = "The Watson Factor") -> str:
               <h2>We couldn't load {esc(d.get('host') or d.get('url', 'the site'))}</h2>
               <p>{esc(d.get('error', ''))}</p>
               <p>{esc(d.get('verdict', ''))}</p>
-            </div>""", brand)
+            </div>""", brand, pdf_url, logo, contact)
 
     host = esc(d["host"])
     overall = int(d["overall"])
@@ -55,7 +61,7 @@ def render_report(d: dict, brand: str = "The Watson Factor") -> str:
         f"""<div class="stat"><div class="k">{esc(k)}</div>
             <div class="v">{esc(str(v))}</div></div>"""
         for k, v in [
-            ("Load time", f"{metrics['load_seconds']:.2f}s"),
+            ("HTML fetched in", f"{metrics['load_seconds']:.2f}s"),
             ("Server response", f"{metrics['ttfb_ms']} ms"),
             ("Page weight (est.)", f"{metrics['page_weight_kb']:,} KB"),
             ("Files requested", metrics["requests_declared"]),
@@ -115,7 +121,7 @@ def render_report(d: dict, brand: str = "The Watson Factor") -> str:
            {esc(brand)} · San Antonio &amp; New Braunfels.</p>
       </div>
     """
-    return _shell(f"Site check — {host}", body, brand)
+    return _shell(f"Site check — {host}", body, brand, pdf_url, logo, contact)
 
 
 def _ring(score: int) -> str:
@@ -129,7 +135,29 @@ def _ring(score: int) -> str:
       </div>"""
 
 
-def _shell(title: str, body: str, brand: str) -> str:
+def _shell(title: str, body: str, brand: str,
+           pdf_url: str | None = None, logo: str = "", contact: str = "") -> str:
+    if logo and logo.startswith("data:image/"):
+        head = f"""<div class="brand"><img class="logo" src="{esc(logo)}" alt="">
+    <div>{esc(brand)}<br>
+      <small style="font-weight:600;color:var(--muted);font-size:11px;
+        letter-spacing:.1em;text-transform:uppercase">{esc(contact) if contact else "Website check"}</small>
+    </div>
+  </div>"""
+    else:
+        head = f"""<div class="brand"><div class="mark">JG</div>
+    <div>Just Grit Marketing<br>
+      <small style="font-weight:600;color:var(--muted);font-size:11px;
+        letter-spacing:.1em;text-transform:uppercase">by {esc(brand)}</small>
+    </div>
+  </div>"""
+    toolbar = ""
+    if pdf_url:
+        toolbar = f"""
+  <div class="toolbar">
+    <a class="dl" href="{esc(pdf_url)}">&#8595;&nbsp; Download as PDF</a>
+    <span class="hint">Save it, email it, or print it for the door.</span>
+  </div>"""
     return f"""<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -140,13 +168,26 @@ def _shell(title: str, body: str, brand: str) -> str:
            --paper:#faf8f4; --card:#ffffff; --hair:#e6e2d8; }}
   * {{ box-sizing:border-box }}
   body {{ margin:0; font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
-         color:var(--ink); background:var(--paper); }}
+         color:var(--ink); background:var(--paper);
+         -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
+  @page {{ size: letter; margin: 12mm; }}
+  .toolbar {{ display:flex; align-items:center; gap:14px; max-width:820px;
+             margin:0 auto; padding:14px 22px 0; }}
+  .toolbar .dl {{ background:linear-gradient(145deg,var(--grit),#b4761f);
+                 color:#1a1206; font-weight:700; font-size:14px;
+                 padding:9px 18px; border-radius:10px; text-decoration:none;
+                 box-shadow:0 2px 8px rgba(232,163,61,.35); }}
+  .toolbar .hint {{ color:var(--muted); font-size:12.5px; }}
+  @media print {{ .toolbar {{ display:none }} .card, .stat, .section,
+                 .cta {{ break-inside: avoid }} }}
   .wrap {{ max-width:820px; margin:0 auto; padding:34px 22px 70px }}
   .brand {{ display:flex; align-items:center; gap:10px; margin-bottom:28px;
            font-weight:800; letter-spacing:-.01em }}
   .mark {{ width:30px; height:30px; border-radius:8px; display:grid;
           place-items:center; color:#1a1206; font-weight:900;
           background:linear-gradient(145deg,var(--grit),#b4761f) }}
+  .logo {{ height:46px; width:auto; max-width:180px; object-fit:contain;
+          border-radius:8px }}
   .hero {{ display:flex; gap:26px; align-items:center; flex-wrap:wrap;
           margin-bottom:22px }}
   .eyebrow {{ font-size:11.5px; letter-spacing:.12em; text-transform:uppercase;
@@ -195,12 +236,7 @@ def _shell(title: str, body: str, brand: str) -> str:
          border:1px solid #f0dfc0 }}
   .cta h2 {{ margin-top:0 }}
 </style></head>
-<body><div class="wrap">
-  <div class="brand"><div class="mark">JG</div>
-    <div>Just Grit Marketing<br>
-      <small style="font-weight:600;color:var(--muted);font-size:11px;
-        letter-spacing:.1em;text-transform:uppercase">by {esc(brand)}</small>
-    </div>
-  </div>
+<body>{toolbar}<div class="wrap">
+  {head}
   {body}
 </div></body></html>"""

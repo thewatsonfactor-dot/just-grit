@@ -175,14 +175,14 @@ def test_suppression():
     os.close(fd)
     old = guard.SUPPRESSION_FILE
     guard.SUPPRESSION_FILE = path
-    guard._supp_cache = None
+    guard._supp_cache.clear()   # per-file cache since QT-3
     try:
         assert guard.is_suppressed("https://www.blocked-example.com/page")
         assert guard.is_suppressed("sub.blocked-example.com")
         assert not guard.is_suppressed("fine-example.com")
     finally:
         guard.SUPPRESSION_FILE = old
-        guard._supp_cache = None
+        guard._supp_cache.clear()   # per-file cache since QT-3
         os.unlink(path)
 
 

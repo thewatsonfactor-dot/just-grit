@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start a business · Just Grit</title>
+<link rel="stylesheet" href="/grit.css">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--plane);color:var(--ink);font:15px/1.5 -apple-system,"Segoe UI",system-ui,sans-serif}
+  header{padding:16px 22px;border-bottom:1px solid var(--hair);display:flex;align-items:center;gap:14px}
+  header b{font-size:15px}
+  header small{color:var(--ink-muted);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+  header a{margin-left:auto;color:var(--ink-muted);font-size:13px;text-decoration:none}
+  .wrap{max-width:720px;margin:0 auto;padding:28px 18px 80px}
+  .steps{display:flex;gap:6px;margin-bottom:22px}
+  .steps span{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.08)}
+  .steps span.on{background:var(--grit)}
+  h1{font-size:22px;margin:0 0 6px;letter-spacing:-.01em}
+  .lead{color:var(--ink-2);margin:0 0 18px;font-size:14px}
+  .panel{background:var(--surface-1);border:1px solid var(--hair);border-radius:14px;padding:18px 20px}
+  .field{margin:0 0 12px}
+  .f{display:block;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);margin-bottom:5px;font-weight:650}
+  .f small{text-transform:none;letter-spacing:0;font-weight:500}
+  input,textarea{width:100%;font:inherit;font-size:14.5px;color:var(--ink);background:var(--surface-2);border:1px solid var(--hair);border-radius:10px;padding:10px 12px}
+  textarea{min-height:64px;resize:vertical}
+  input:focus,textarea:focus{outline:none;border-color:var(--grit)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:560px){.two{grid-template-columns:1fr}}
+  .offer{border:1px solid var(--hair);border-radius:12px;padding:14px;margin-bottom:12px;background:var(--surface-2)}
+  .offer h3{margin:0 0 10px;font-size:14px}
+  .offer input,.offer textarea{background:var(--surface-1)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px}
+  .btn{font:inherit;font-weight:650;font-size:14px;padding:10px 18px;border-radius:10px;border:0;cursor:pointer;background:var(--grit);color:#1a1206}
+  .btn.plain{background:transparent;color:var(--ink-2);border:1px solid var(--hair)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .cap{font-size:12.5px;color:var(--ink-muted)}
+  .msg{margin-top:12px;font-size:13.5px}
+  .msg.err{color:var(--bad)}
+  .done h2{margin:0 0 8px}
+  .done li{margin:4px 0}
+  .hint{background:var(--grit-dim);border:1px solid rgba(232,163,61,.3);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink-2);margin-bottom:14px}
+</style></head>
+<body>
+<header><b>Just Grit</b><small>Start a business</small><a href="/">Back to the app</a></header>
+<div class="wrap">
+  <div class="steps"><span class="on"></span><span></span><span></span><span></span></div>
+
+  <!-- 1 -->
+  <section data-step="1">
+    <h1>Whose business is this?</h1>
+    <p class="lead">Ten minutes, four screens. Nothing sends until they say go.</p>
+    <div class="panel">
+      <div class="field"><label class="f">Business name</label><input id="name" placeholder="Blanco Cafe"></div>
+      <div class="two">
+        <div class="field"><label class="f">Website</label><input id="website" placeholder="blancocafe.com"></div>
+        <div class="field"><label class="f">City they work in</label><input id="city" placeholder="New Braunfels, TX"></div>
+      </div>
+      <div class="field"><label class="f">What they sell <small>(one line, their words)</small></label><input id="sells" placeholder="home maintenance plans for busy homeowners"></div>
+      <div class="two">
+        <div class="field"><label class="f">Who buys it</label><input id="buyer" placeholder="homeowners, property managers"></div>
+        <div class="field"><label class="f">Trade to find first <small>(one)</small></label><input id="trade" placeholder="Property management"></div>
+      </div>
+    </div>
+    <div class="row"><button class="btn" data-next="2">Next: what they sell</button></div>
+  </section>
+
+  <!-- 2 -->
+  <section data-step="2" hidden>
+    <h1>What do they sell, and when does someone need it?</h1>
+    <p class="lead">One offer is enough to start. The app writes every email from these three sentences.</p>
+    <div class="hint">The middle question is the one that matters: what is going wrong at a customer right before they buy. "They miss calls during the dinner rush." "Their reviews mention slow response." That is what decides who gets written to.</div>
+    <div id="offers"></div>
+    <button class="btn plain" id="addOffer" type="button">+ Another offer</button>
+    <div class="row"><button class="btn plain" data-next="1">Back</button><button class="btn" data-next="3">Next: who sends</button></div>
+  </section>
+
+  <!-- 3 -->
+  <section data-step="3" hidden>
+    <h1>Who do the emails come from?</h1>
+    <p class="lead">This is the sign-off on every email. The mailing address is required by law on business email.</p>
+    <div class="panel">
+      <div class="two">
+        <div class="field"><label class="f">Name</label><input id="sender_name" placeholder="Ann Carter"></div>
+        <div class="field"><label class="f">Phone</label><input id="sender_phone" placeholder="(830) 555-0100"></div>
+      </div>
+      <div class="field"><label class="f">Email they send from</label><input id="sender_email" placeholder="ann@blancocafe.com"></div>
+      <div class="field"><label class="f">Mailing address</label><input id="sender_address" placeholder="123 Main St, New Braunfels, TX 78130"></div>
+      <div class="field"><label class="f">Line on every social picture <small>(optional)</small></label><input id="brand_tag" placeholder="(830) 555-0100"></div>
+      <div class="field"><label class="f">Words they never say <small>(optional, comma-separated)</small></label><input id="never_say" placeholder="circle back, leverage"></div>
+    </div>
+    <div class="row"><button class="btn plain" data-next="2">Back</button><button class="btn" data-next="4">Next: who gets in</button></div>
+  </section>
+
+  <!-- 4 -->
+  <section data-step="4" hidden>
+    <h1>Who at the business can sign in?</h1>
+    <p class="lead">Their workspace is theirs alone: their leads, their settings, their logins. You keep owner access.</p>
+    <div class="panel">
+      <div class="field"><label class="f">Their email addresses <small>(comma-separated)</small></label><input id="guests" placeholder="ann@blancocafe.com, bob@blancocafe.com"></div>
+      <p class="cap">Left blank, only you can open it - fine while you set it up for them.</p>
+    </div>
+    <div class="row"><button class="btn plain" data-next="3">Back</button><button class="btn" id="create">Create the business</button></div>
+    <div class="msg" id="msg"></div>
+  </section>
+
+  <!-- done -->
+  <section data-step="5" hidden class="done">
+    <h1 id="doneHead">Created.</h1>
+    <div class="panel">
+      <p id="doneBody"></p>
+      <ul id="doneProblems"></ul>
+      <div class="row"><a class="btn" id="openLink" href="/">Open their workspace</a><a class="btn plain" href="/start">Start another</a></div>
+    </div>
+  </section>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+function $$(s, root){ return [...(root || document).querySelectorAll(s)]; }
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function show(n){
+  $$("section[data-step]").forEach(s => s.hidden = s.dataset.step != n);
+  $$(".steps span").forEach((s, i) => s.classList.toggle("on", i < Math.min(n, 4)));
+  window.scrollTo({top: 0});
+}
+$$("[data-next]").forEach(b => b.onclick = () => {
+  if(b.dataset.next === "2" && !$("#name").value.trim()){ $("#name").focus(); return; }
+  show(+b.dataset.next);
+});
+let N = 0;
+function addOffer(){
+  N++;
+  const d = document.createElement("div"); d.className = "offer"; d.dataset.n = N;
+  d.innerHTML = `<h3>Offer ${N}</h3>
+    <div class="field"><label class="f">Name</label><input data-k="name" placeholder="Monthly maintenance plan"></div>
+    <div class="field"><label class="f">What is going wrong at a customer right before they buy?</label><textarea data-k="trigger" placeholder="Something breaks on a weekend and they can't find anyone to come out"></textarea></div>
+    <div class="field"><label class="f">What does that cost them?</label><textarea data-k="costs" placeholder="An emergency rate, a day off work, a bigger repair than it needed to be"></textarea></div>
+    <div class="field"><label class="f">What do they do about it?</label><textarea data-k="does" placeholder="A scheduled visit every season so the small things get caught first"></textarea></div>`;
+  $("#offers").appendChild(d);
+}
+$("#addOffer").onclick = addOffer; addOffer();
+$("#create").onclick = async () => {
+  const b = $("#create"); b.disabled = true; $("#msg").className = "msg"; $("#msg").textContent = "Creating…";
+  const offers = $$(".offer").map(o => Object.fromEntries($$("[data-k]", o).map(i => [i.dataset.k, i.value.trim()]))).filter(o => o.name);
+  const body = {name: $("#name").value.trim(), website: $("#website").value.trim(), city: $("#city").value.trim(),
+    sells: $("#sells").value.trim(), buyer: $("#buyer").value.trim(), trade: $("#trade").value.trim(), offers,
+    sender_name: $("#sender_name").value.trim(), sender_email: $("#sender_email").value.trim(), sender_phone: $("#sender_phone").value.trim(),
+    sender_address: $("#sender_address").value.trim(), brand_tag: $("#brand_tag").value.trim(), never_say: $("#never_say").value.trim(),
+    guests: $("#guests").value.trim()};
+  try{
+    const r = await fetch("/api/start", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify(body)});
+    const d = await r.json(); if(!r.ok) throw new Error(d.detail || ("Error " + r.status));
+    $("#doneHead").textContent = d.name + " is set up.";
+    $("#doneBody").textContent = (d.offers.length ? "Offers saved: " + d.offers.join(", ") + ". " : "") + d.next;
+    $("#doneProblems").innerHTML = (d.problems || []).map(p => `<li>${esc(p)}</li>`).join("");
+    $("#openLink").href = d.open;
+    show(5);
+  }catch(e){ $("#msg").className = "msg err"; $("#msg").textContent = e.message; b.disabled = false; }
+};
+</script>
+</body></html>

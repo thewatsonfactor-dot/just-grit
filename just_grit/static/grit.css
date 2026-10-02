@@ -1,0 +1,123 @@
+/* Just Grit design tokens + base components — one file, every page.
+   Load first; page styles only add layout. Rule: no hex, no raw px for
+   colour, type, spacing or radius outside this file. */
+
+:root{
+  color-scheme:dark;
+  /* surfaces */
+  --plane:#0d0d0d; --surface-1:#16161a; --surface-2:#1d1d21; --surface-3:#25252a;
+  /* text */
+  --ink:#ffffff; --ink-2:#c3c2b7; --ink-muted:#8f8d86; --ink-faint:#5e5c57;
+  /* lines */
+  --hair:rgba(255,255,255,.10); --hair-2:rgba(255,255,255,.18);
+  /* brand — the logo's orange is the one accent; amber stays for charts only */
+  --grit:#e7410a; --grit-hot:#ff5a1f; --grit-ink:#ffffff; --grit-dim:rgba(231,65,10,.16); --grit-rgb:231,65,10;
+  --series-1:#e8a33d; --series-2:#9aa285; --series-3:#6f8fb3;
+  /* meaning */
+  --good:#2fbf5a; --good-dim:rgba(47,191,90,.14);
+  --warning:#e8a33d; --warning-dim:rgba(232,163,61,.14);
+  --bad:#e5484d; --bad-dim:rgba(229,72,77,.14);
+  --info:#6f8fb3; --info-dim:rgba(111,143,179,.14);
+  /* type scale — 6 sizes, nothing in between */
+  --font:-apple-system,"Segoe UI",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --t-xs:11px; --t-sm:12.5px; --t-md:14px; --t-lg:16px; --t-xl:20px; --t-2xl:28px;
+  --lh:1.5;
+  /* spacing — 4px grid */
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-8:32px; --s-10:40px;
+  /* radius */
+  --r-sm:6px; --r:10px; --r-lg:14px; --r-pill:999px;
+  /* elevation */
+  --shadow-1:0 1px 2px rgba(0,0,0,.4); --shadow-2:0 8px 24px rgba(0,0,0,.45);
+  /* motion */
+  --fast:120ms; --base:200ms; --ease:cubic-bezier(.2,.7,.2,1);
+}
+@media (prefers-reduced-motion:reduce){:root{--fast:0ms;--base:0ms}}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);font:var(--t-md)/var(--lh) var(--font)}
+a{color:var(--grit-hot)}
+h1{font-size:var(--t-2xl);margin:0 0 var(--s-2);letter-spacing:-.01em}
+h2{font-size:var(--t-xl);margin:0 0 var(--s-2)}
+h3{font-size:var(--t-lg);margin:0 0 var(--s-1)}
+.muted{color:var(--ink-muted)} .small{font-size:var(--t-sm)}
+.label{display:block;font-size:var(--t-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);font-weight:650;margin-bottom:var(--s-1)}
+
+/* Button: primary / secondary / ghost / danger; sm / md; states incl. loading */
+.btn{display:inline-flex;align-items:center;gap:var(--s-2);font:inherit;font-weight:650;font-size:var(--t-md);
+  padding:10px 18px;border-radius:var(--r);border:1px solid transparent;cursor:pointer;
+  background:var(--grit);color:var(--grit-ink);transition:background var(--fast) var(--ease),transform var(--fast) var(--ease);min-height:40px}
+.btn:hover{background:var(--grit-hot)} .btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--grit-hot);outline-offset:2px}
+.btn.secondary{background:var(--surface-2);color:var(--ink);border-color:var(--hair-2)} .btn.secondary:hover{background:var(--surface-3)}
+.btn.ghost{background:transparent;color:var(--ink-2);border-color:var(--hair)} .btn.ghost:hover{color:var(--ink);border-color:var(--hair-2)}
+.btn.danger{background:var(--bad-dim);color:var(--bad);border-color:rgba(229,72,77,.35)}
+.btn.sm{padding:6px 12px;font-size:var(--t-sm);min-height:32px}
+.btn:disabled,.btn[aria-disabled=true]{opacity:.45;cursor:default;transform:none}
+.btn.loading{position:relative;color:transparent;pointer-events:none}
+.btn.loading::after{content:"";position:absolute;width:16px;height:16px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Inputs */
+.input,input.input,select.input,textarea.input{width:100%;font:inherit;font-size:var(--t-md);color:var(--ink);background:var(--surface-2);
+  border:1px solid var(--hair);border-radius:var(--r);padding:10px 12px;min-height:40px;transition:border-color var(--fast)}
+.input:focus{outline:none;border-color:var(--grit)} .input::placeholder{color:var(--ink-faint)}
+.input[aria-invalid=true]{border-color:var(--bad)} .field{margin-bottom:var(--s-3)} .field .help{font-size:var(--t-sm);color:var(--ink-muted);margin-top:var(--s-1)}
+.field .error{font-size:var(--t-sm);color:var(--bad);margin-top:var(--s-1)}
+
+/* Card */
+.card{background:var(--surface-1);border:1px solid var(--hair);border-radius:var(--r-lg);padding:var(--s-5) var(--s-6)}
+.card.flat{background:transparent}
+
+/* Pill: status chips. tone = good | warning | bad | info | neutral */
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:var(--t-xs);font-weight:650;letter-spacing:.04em;text-transform:uppercase;
+  padding:3px 9px;border-radius:var(--r-pill);background:var(--surface-2);color:var(--ink-2);border:1px solid var(--hair)}
+.pill.good{background:var(--good-dim);color:var(--good);border-color:transparent}
+.pill.warning{background:var(--warning-dim);color:var(--warning);border-color:transparent}
+.pill.bad{background:var(--bad-dim);color:var(--bad);border-color:transparent}
+.pill.info{background:var(--info-dim);color:var(--info);border-color:transparent}
+.pill.grit{background:var(--grit-dim);color:var(--grit-hot);border-color:transparent}
+
+/* Notice: inline message. Same tones. Never a raw error string. */
+.notice{display:flex;gap:var(--s-3);align-items:flex-start;padding:var(--s-3) var(--s-4);border-radius:var(--r);
+  background:var(--surface-2);border:1px solid var(--hair);font-size:var(--t-sm);color:var(--ink-2)}
+.notice.good{background:var(--good-dim);border-color:transparent;color:var(--ink)}
+.notice.warning{background:var(--warning-dim);border-color:transparent;color:var(--ink)}
+.notice.bad{background:var(--bad-dim);border-color:transparent;color:var(--ink)}
+.notice b{color:var(--ink)}
+
+/* Empty state: one line of why, one button of what next */
+.empty{text-align:center;padding:var(--s-10) var(--s-4);color:var(--ink-muted)}
+.empty h3{color:var(--ink);font-size:var(--t-lg);margin-bottom:var(--s-1)}
+.empty p{margin:0 0 var(--s-4);font-size:var(--t-sm)}
+
+/* Loading: skeleton lines, never a blank card */
+.skeleton{position:relative;overflow:hidden;background:var(--surface-2);border-radius:var(--r-sm);min-height:14px}
+.skeleton::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);animation:shimmer 1.2s infinite}
+@keyframes shimmer{to{transform:translateX(100%)}}
+.skeleton.line{height:14px;margin:var(--s-2) 0} .skeleton.title{height:22px;width:40%} .skeleton.block{height:80px}
+
+/* Toast: bottom-right, auto-dismiss, replaces alert() */
+#toasts{position:fixed;right:var(--s-5);bottom:var(--s-5);display:flex;flex-direction:column;gap:var(--s-2);z-index:50;max-width:380px}
+.toast{background:var(--surface-3);color:var(--ink);border:1px solid var(--hair-2);border-radius:var(--r);padding:var(--s-3) var(--s-4);
+  font-size:var(--t-sm);box-shadow:var(--shadow-2);animation:rise var(--base) var(--ease)}
+.toast.good{border-color:var(--good)} .toast.bad{border-color:var(--bad)} .toast.warning{border-color:var(--warning)}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Dialog: replaces confirm() */
+.dialog-shade{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:60;padding:var(--s-4)}
+.dialog{background:var(--surface-1);border:1px solid var(--hair-2);border-radius:var(--r-lg);padding:var(--s-6);max-width:440px;width:100%;box-shadow:var(--shadow-2)}
+.dialog h3{margin-bottom:var(--s-2)} .dialog p{color:var(--ink-2);font-size:var(--t-sm);margin:0 0 var(--s-5)}
+.dialog .row{display:flex;gap:var(--s-2);justify-content:flex-end}
+
+/* Table: the Leads grid and every list */
+.table{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
+.table th{text-align:left;font-size:var(--t-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);font-weight:650;
+  padding:var(--s-2) var(--s-3);border-bottom:1px solid var(--hair-2);white-space:nowrap;cursor:pointer;user-select:none}
+.table th[aria-sort=ascending]::after{content:" ↑"} .table th[aria-sort=descending]::after{content:" ↓"}
+.table td{padding:10px var(--s-3);border-bottom:1px solid var(--hair);vertical-align:middle}
+.table tr:hover td{background:rgba(255,255,255,.03)}
+.table .num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* Focus ring everywhere */
+:focus-visible{outline:2px solid var(--grit-hot);outline-offset:2px}

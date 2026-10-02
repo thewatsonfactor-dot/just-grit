@@ -65,8 +65,10 @@ SUPPRESSION_FILE = os.environ.get(
                  "suppressed_domains.txt"))
 
 _supp_lock = threading.Lock()
-_supp_cache: set[str] | None = None
-_supp_mtime: float = 0.0
+# One cache entry per file. The list used to be a single process-wide set,
+# which was fine while every caller was the same owner; it is not fine once a
+# customer workspace can call suppress() - see webapp.suppression_paths().
+_supp_cache: dict[str, tuple[float, set[str]]] = {}
 
 
 def _norm_domain(raw: str) -> str:
@@ -77,40 +79,51 @@ def _norm_domain(raw: str) -> str:
     return re.sub(r"^www\.", "", raw)
 
 
-def _load() -> set[str]:
-    global _supp_cache, _supp_mtime
+def _load(path: str | None = None) -> set[str]:
+    path = path or SUPPRESSION_FILE
     try:
-        mtime = os.path.getmtime(SUPPRESSION_FILE)
+        mtime = os.path.getmtime(path)
     except OSError:
         return set()
     with _supp_lock:
-        if _supp_cache is None or mtime != _supp_mtime:
-            with open(SUPPRESSION_FILE, encoding="utf-8") as fh:
-                _supp_cache = {_norm_domain(line) for line in fh
-                               if line.strip() and not line.startswith("#")}
-            _supp_mtime = mtime
-        return _supp_cache
+        hit = _supp_cache.get(path)
+        if hit is None or hit[0] != mtime:
+            with open(path, encoding="utf-8") as fh:
+                doms = {_norm_domain(line) for line in fh
+                        if line.strip() and not line.startswith("#")}
+            _supp_cache[path] = (mtime, doms)
+            return doms
+        return hit[1]
 
 
-def is_suppressed(url_or_domain: str) -> bool:
+def is_suppressed(url_or_domain: str, paths=None) -> bool:
+    """Is this domain on any of the given lists (default: the account list)?
+
+    `paths` is a list of files; a domain on ANY of them is suppressed. A
+    workspace passes its own file plus the account's, so the owner's global
+    do-not-scan decisions still hold everywhere while a customer's own
+    dead/corporate marks stay inside that customer's workspace.
+    """
     d = _norm_domain(url_or_domain)
-    supp = _load()
-    return any(d == s or d.endswith("." + s) for s in supp)
+    for path in (paths or [SUPPRESSION_FILE]):
+        if any(d == s or d.endswith("." + s) for s in _load(path)):
+            return True
+    return False
 
 
-def suppress(domain: str) -> None:
-    """Append a domain to the suppression list (used by the CLI)."""
+def suppress(domain: str, path: str | None = None) -> None:
+    """Append a domain to a suppression list (default: the account list)."""
+    path = path or SUPPRESSION_FILE
     d = _norm_domain(domain)
     with _supp_lock:
         existing = ""
-        if os.path.exists(SUPPRESSION_FILE):
-            with open(SUPPRESSION_FILE, encoding="utf-8") as fh:
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as fh:
                 existing = fh.read()
         if d not in existing:
-            with open(SUPPRESSION_FILE, "a", encoding="utf-8") as fh:
+            with open(path, "a", encoding="utf-8") as fh:
                 fh.write(d + "\n")
-    global _supp_cache
-    _supp_cache = None
+        _supp_cache.pop(path, None)
 
 
 SUPPRESSED_MESSAGE = (

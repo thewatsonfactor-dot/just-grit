@@ -1,0 +1,356 @@
+{
+ "thewatsonfactor.dev": {
+  "ok": true,
+  "final_url": "https://thewatsonfactor.dev",
+  "status": 200,
+  "robots_txt": true,
+  "sitemap_urls": 43,
+  "title": "App & Web Development in San Antonio, TX | The Watson Factor",
+  "title_len": 60,
+  "meta_desc": "The Watson Factor Development builds custom apps, websites, AI tools, and automation for businesses in San Antonio, Austin & New Braunfels, Texas. Web design and custom software shipped in weeks \u2014 serving Central Texas and nationwide.",
+  "meta_desc_len": 234,
+  "h1s": [
+   "App Development, AI Tools & Automation in San Antonio and Austin"
+  ],
+  "h2s": [
+   "Building the future, one intelligent system at a time.",
+   "What We Build",
+   "Turn any camera into an AI employee .",
+   "Systems We've Shipped",
+   "How We Build",
+   "Our Stack",
+   "Why The Watson Factor",
+   "The Studio",
+   "Featured Projects",
+   "One studio. Systems that move business forward.",
+   "Start Your Project",
+   "Need Inspiration?"
+  ],
+  "noindex": false,
+  "canonical": "https://thewatsonfactor.dev",
+  "og_title": true,
+  "og_image": true,
+  "schema_types": [
+   "Answer",
+   "City",
+   "Country",
+   "FAQPage",
+   "GeoCoordinates",
+   "LocalBusiness",
+   "Offer",
+   "PostalAddress",
+   "ProfessionalService",
+   "Question",
+   "Service",
+   "State",
+   "WebSite"
+  ],
+  "has_local_schema": true,
+  "images": 4,
+  "images_no_alt": 0,
+  "links_internal": 39,
+  "links_external": 3,
+  "word_count": 1735,
+  "cities": [
+   "austin",
+   "new braunfels",
+   "san antonio"
+  ],
+  "city_in_title": true,
+  "top_words": [
+   [
+    "watson",
+    27
+   ],
+   [
+    "factor",
+    25
+   ],
+   [
+    "development",
+    22
+   ],
+   [
+    "automation",
+    20
+   ],
+   [
+    "tools",
+    19
+   ],
+   [
+    "custom",
+    19
+   ],
+   [
+    "apps",
+    18
+   ],
+   [
+    "build",
+    18
+   ]
+  ]
+ },
+ "7tech.com": {
+  "ok": true,
+  "final_url": "https://www.7tech.com/",
+  "status": 200,
+  "robots_txt": true,
+  "sitemap_urls": 4,
+  "title": "Responsive Managed IT & Cybersecurity in Texas | 7tech",
+  "title_len": 54,
+  "meta_desc": "Tired of slow IT support? 7tech is a Texas MSP and MSSP with a 20-minute average response. Schedule a 15-minute discovery call.",
+  "meta_desc_len": 127,
+  "h1s": [
+   "Managed IT and Cybersecurity for Mid-Sized Texas Organizations"
+  ],
+  "h2s": [
+   "Everything Is Fine, Until It Isn\u2019t.",
+   "Why Texas Organizations Choose 7tech\u2019s Managed IT Services",
+   "Four Things Most Managed Services Providers Cannot Say",
+   "Zero Compromise Cybersecurity\u2122",
+   "What You Get With 7tech",
+   "Questions People Ask Before They Call",
+   "Q4 IT Checklist for Businesses: What to Review Before Year-End",
+   "IT Support Vs Helpdesk: What Growing Teams Really Need",
+   "We Reviewed 26 Nonprofit IT Audits. Here\u2019s What Failed Most."
+  ],
+  "noindex": false,
+  "canonical": "https://www.7tech.com/",
+  "og_title": true,
+  "og_image": true,
+  "schema_types": [
+   "Answer",
+   "BreadcrumbList",
+   "ContactPoint",
+   "EducationalOrganization",
+   "EntryPoint",
+   "FAQPage",
+   "ImageObject",
+   "ListItem",
+   "Organization",
+   "Person",
+   "PropertyValueSpecification",
+   "Question",
+   "ReadAction",
+   "SearchAction",
+   "WebPage",
+   "WebSite"
+  ],
+  "has_local_schema": false,
+  "images": 69,
+  "images_no_alt": 24,
+  "links_internal": 122,
+  "links_external": 5,
+  "word_count": 3584,
+  "cities": [
+   "austin",
+   "san antonio"
+  ],
+  "city_in_title": false,
+  "top_words": [
+   [
+    "support",
+    39
+   ],
+   [
+    "found",
+    35
+   ],
+   [
+    "security",
+    34
+   ],
+   [
+    "more",
+    34
+   ],
+   [
+    "services",
+    33
+   ],
+   [
+    "partner",
+    30
+   ],
+   [
+    "read",
+    27
+   ],
+   [
+    "team",
+    26
+   ]
+  ]
+ },
+ "corewebtechnologies.com": {
+  "ok": true,
+  "final_url": "https://www.corewebtechnologies.com/",
+  "status": 200,
+  "robots_txt": true,
+  "sitemap_urls": 21,
+  "title": "Professional Video Editing/App Design Specialist/SEO Company San Antonio",
+  "title_len": 72,
+  "meta_desc": "Top quality digital marketing services for your business \nWe work with companies of all sizes, and in all industries. We are dedicated to handling all website, digital marketing and custom solution, so you can focus on what really matters to your business.",
+  "meta_desc_len": 256,
+  "h1s": [
+   "We\u2019re pretty good in what we do.",
+   "We\u2019re pretty good in what we do."
+  ],
+  "h2s": [
+   "We Make The Complex Simple",
+   "We have expertise in working with a range of industries :"
+  ],
+  "noindex": false,
+  "canonical": "https://www.corewebtechnologies.com/",
+  "og_title": true,
+  "og_image": true,
+  "schema_types": [],
+  "has_local_schema": false,
+  "images": 55,
+  "images_no_alt": 55,
+  "links_internal": 73,
+  "links_external": 59,
+  "word_count": 759,
+  "cities": [
+   "san antonio"
+  ],
+  "city_in_title": true,
+  "top_words": [
+   [
+    "button",
+    33
+   ],
+   [
+    "website",
+    13
+   ],
+   [
+    "marketing",
+    12
+   ],
+   [
+    "business",
+    10
+   ],
+   [
+    "online",
+    9
+   ],
+   [
+    "customers",
+    9
+   ],
+   [
+    "custom",
+    8
+   ],
+   [
+    "solution",
+    8
+   ]
+  ]
+ },
+ "nxtgenweb.com": {
+  "ok": true,
+  "final_url": "https://nxtgenweb.com",
+  "status": 200,
+  "robots_txt": true,
+  "sitemap_urls": 0,
+  "title": "San Antonio Digital Marketing Agency & Web Design | NXT GEN WEB",
+  "title_len": 63,
+  "meta_desc": "NXT GEN WEB is San Antonio's award-winning digital marketing agency. Expert web design, SEO, PPC, and branding services for businesses in San Antonio, Boerne, New Braunfels & beyond. Call (210) 360-1643.",
+  "meta_desc_len": 203,
+  "h1s": [
+   "Award-Winning Digital Marketing Agency in San Antonio, TX",
+   "Bitcoin Payments"
+  ],
+  "h2s": [
+   "San Antonio Digital Marketing Agency To Grow Your Business Online",
+   "San Antonio Digital Marketing Agency To Grow Your Business Online",
+   "Digital Marketing & Web Design Services in San Antonio, TX",
+   "Web Design Service",
+   "PPC Management",
+   "Search Engine Optimization",
+   "Animation Videos",
+   "Graphic & Logo Design",
+   "Web and Maintenance",
+   "San Antonio Web Design & Digital Marketing That Delivers Results",
+   "Why San Antonio Businesses Choose NXT GEN WEB",
+   "Our San Antonio Client Portfolio & Case Studies"
+  ],
+  "noindex": false,
+  "canonical": "https://nxtgenweb.com/",
+  "og_title": true,
+  "og_image": true,
+  "schema_types": [
+   "AggregateRating",
+   "Answer",
+   "ContactPoint",
+   "FAQPage",
+   "ImageObject",
+   "LocalBusiness",
+   "MarketingAgency",
+   "Organization",
+   "Person",
+   "PostalAddress",
+   "Question",
+   "Rating",
+   "Review",
+   "SearchAction",
+   "VideoObject",
+   "WebPage",
+   "WebSite"
+  ],
+  "has_local_schema": true,
+  "images": 42,
+  "images_no_alt": 4,
+  "links_internal": 60,
+  "links_external": 43,
+  "word_count": 3205,
+  "cities": [
+   "alamo heights",
+   "austin",
+   "boerne",
+   "converse",
+   "helotes",
+   "houston"
+  ],
+  "city_in_title": false,
+  "top_words": [
+   [
+    "design",
+    41
+   ],
+   [
+    "antonio",
+    37
+   ],
+   [
+    "digital",
+    36
+   ],
+   [
+    "marketing",
+    35
+   ],
+   [
+    "business",
+    31
+   ],
+   [
+    "services",
+    28
+   ],
+   [
+    "brand",
+    21
+   ],
+   [
+    "more",
+    18
+   ]
+  ]
+ }
+}

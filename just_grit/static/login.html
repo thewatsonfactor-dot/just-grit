@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Just Grit</title>
+<link rel="apple-touch-icon" href="/welcome/jg-icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/welcome/jg-icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/welcome/jg-icon-192.png">
+<meta name="apple-mobile-web-app-title" content="Just Grit">
+<meta name="theme-color" content="#111112">
+<link rel="stylesheet" href="/grit.css">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:var(--plane);color:var(--ink);font:var(--t-md)/1.5 -apple-system,"Segoe UI",system-ui,sans-serif}
+  header{padding:18px 22px;display:flex;align-items:center;gap:12px}
+  .mark{display:inline-block;border:2px solid var(--grit);border-radius:6px;padding:2px 8px;font-weight:900;font-style:italic;letter-spacing:.02em;font-size:15px}
+  .mark span{color:var(--grit-hot)}
+  header small{color:var(--ink-muted);font-size:var(--t-xs);letter-spacing:.1em;text-transform:uppercase}
+  main{flex:1;display:flex;align-items:center;justify-content:center;padding:24px 16px 60px}
+  .card{width:100%;max-width:400px;background:var(--surface-1);border:1px solid var(--hair);border-radius:var(--r-lg);padding:26px 26px 22px}
+  h1{font-size:var(--t-xl);margin:0 0 6px;letter-spacing:-.01em}
+  .lead{color:var(--ink-2);font-size:var(--t-sm);margin:0 0 18px}
+  label{display:block;font-size:var(--t-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);font-weight:650;margin-bottom:5px}
+  input{width:100%;font:inherit;font-size:var(--t-lg);color:var(--ink);background:var(--surface-2);border:1px solid var(--hair);border-radius:var(--r);padding:11px 12px;min-height:44px}
+  input:focus{outline:none;border-color:var(--grit)} input::placeholder{color:var(--ink-faint)}
+  input.code{letter-spacing:.35em;font-size:24px;text-align:center;font-variant-numeric:tabular-nums}
+  .btn{width:100%;margin-top:14px;font:inherit;font-weight:650;font-size:var(--t-md);padding:11px 18px;min-height:44px;border-radius:var(--r);border:0;cursor:pointer;background:var(--grit);color:#fff;position:relative}
+  .btn:hover{background:var(--grit-hot)} .btn:disabled{opacity:.5;cursor:default}
+  .btn.loading{color:transparent}
+  .btn.loading::after{content:"";position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .link{background:none;border:0;color:var(--ink-muted);font:inherit;font-size:var(--t-sm);cursor:pointer;padding:0;margin-top:14px;text-decoration:underline}
+  .notice{margin-top:14px;padding:10px 12px;border-radius:var(--r);font-size:var(--t-sm);color:var(--ink);background:var(--surface-2);border:1px solid var(--hair)}
+  .notice.bad{background:var(--bad-dim);border-color:transparent} .notice.good{background:var(--good-dim);border-color:transparent}
+  .notice.warning{background:var(--warning-dim);border-color:transparent}
+  .notice:empty{display:none}
+  footer{padding:14px 22px;font-size:var(--t-xs);color:var(--ink-faint);display:flex;gap:14px;flex-wrap:wrap}
+  footer a{color:var(--ink-muted);text-decoration:none}
+  [hidden]{display:none !important}
+</style></head>
+<body>
+<header><span class="mark">JUST <span>GRIT</span></span><small>Sales engine</small></header>
+<main>
+  <form class="card" id="f" autocomplete="off">
+    <section id="s1">
+      <h1>Sign in</h1>
+      <p class="lead">Type the email address on your account. We'll send a six-digit code; no password to remember.</p>
+      <label for="email">Email</label>
+      <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="you@yourbusiness.com" required autofocus>
+      <button class="btn" id="send" type="submit">Send my code</button>
+    </section>
+    <section id="s2" hidden>
+      <h1>Check your email</h1>
+      <p class="lead">A code went to <b id="to"></b>. It works for 10 minutes.</p>
+      <label for="code">Code</label>
+      <input id="code" class="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" autocomplete="one-time-code">
+      <button class="btn" id="verify" type="submit">Sign in</button>
+      <button class="link" id="again" type="button">Use a different email</button>
+    </section>
+    <div class="notice" id="msg"></div>
+  </form>
+</main>
+<footer><a href="/welcome">What Just Grit is</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="mailto:daniel@thewatsonfactor.com">Help</a></footer>
+<script>
+const $ = s => document.querySelector(s);
+const msg = (text, tone) => { const m = $("#msg"); m.textContent = text || ""; m.className = "notice" + (tone ? " " + tone : ""); };
+let step = 1;
+const next = new URLSearchParams(location.search).get("next") || "/";
+async function post(url, body){
+  const r = await fetch(url, {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify(body)});
+  const d = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(d.detail || "Something went wrong on our side. Try again in a minute.");
+  return d;
+}
+function busy(b, on){ b.disabled = on; b.classList.toggle("loading", on); }
+$("#f").onsubmit = async e => {
+  e.preventDefault(); msg("");
+  if(step === 1){
+    const email = $("#email").value.trim(); const b = $("#send");
+    if(!email){ $("#email").focus(); return; }
+    busy(b, true);
+    try{
+      const d = await post("/auth/login", {email});
+      $("#to").textContent = email; $("#s1").hidden = true; $("#s2").hidden = false; step = 2;
+      $("#code").focus();
+      if(d.note) msg(d.note, "warning");
+    }catch(err){ msg(err.message, "bad"); }
+    busy(b, false);
+  }else{
+    const b = $("#verify"); busy(b, true);
+    try{
+      const d = await post("/auth/verify", {email: $("#email").value.trim(), code: $("#code").value});
+      msg("Signed in. Opening your workspace…", "good");
+      location.href = d.open || next;
+    }catch(err){ msg(err.message, "bad"); busy(b, false); $("#code").select(); }
+  }
+};
+$("#again").onclick = () => { $("#s2").hidden = true; $("#s1").hidden = false; step = 1; msg(""); $("#email").focus(); };
+$("#code").addEventListener("input", () => { if($("#code").value.length === 6) $("#f").requestSubmit(); });
+</script>
+</body></html>

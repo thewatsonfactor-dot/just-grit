@@ -462,6 +462,119 @@ def check_conversion(res: FetchResult, soup: BeautifulSoup,
 
 # ------------------------------------------------------------------ local --
 
+# Counting locations, so a report never tells a ten-clinic group to publish one
+# address. The first version let the middle of a match run past a ZIP into the
+# next address - it produced "78217 2430 E. Southcross Blvd" and miscounted.
+# A ZIP ends an address, so we mark that boundary and forbid crossing it.
+_SUFFIX = (r"St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Hwy|"
+           r"Highway|Loop|Pkwy|Parkway|Ct|Court|Way|Cir|Circle|Trail|Trl")
+_ZIP_END = re.compile(r"\b([A-Z]{2})\s+(\d{5})(?:-\d{4})?\b")
+_ADDR_RX = re.compile(
+    r"\b\d{1,6}\s+(?:(?!\d{5}\b)[A-Za-z0-9.\'#-]+\s+){0,6}?(?:" + _SUFFIX + r")\b",
+    re.I)
+
+
+def street_addresses(text):
+    """Distinct street addresses on the page, as matched."""
+    marked = _ZIP_END.sub(r"\1 \2 ~ ", text or "")
+    hits, seen, out = [m.group(0).strip() for m in _ADDR_RX.finditer(marked)], set(), []
+    for h in hits:
+        k = re.sub(r"[^a-z0-9]", "", h.lower())[:28]
+        if k and k not in seen:
+            seen.add(k)
+            out.append(h)
+    return out
+
+
+def count_locations(text, soup):
+    """How many distinct physical locations this page appears to describe.
+
+    Two independent signals - addresses in the text and Google Maps embeds -
+    and we take the larger, because a page usually lists more addresses than
+    it embeds maps for."""
+    maps = 0
+    try:
+        maps = len([i for i in soup.find_all("iframe")
+                    if "google.com/maps" in (i.get("src") or "")])
+    except Exception:
+        pass
+    return max(len(street_addresses(text)), maps, stated_location_count(text))
+
+
+_COUNT_RX = re.compile(
+    r"\b(\d{1,3})\s+(?:convenient\s+|great\s+|neighborhood\s+|area\s+)?locations\b", re.I)
+
+
+def stated_location_count(text):
+    """A chain that says "12 locations" has told us the number outright.
+
+    Cheaper and far more reliable than counting addresses, and it works on the
+    common case where the homepage carries no address at all.
+    """
+    best = 0
+    for m in _COUNT_RX.finditer(text or ""):
+        try:
+            n = int(m.group(1))
+        except ValueError:
+            continue
+        if 2 <= n <= 500:            # "1 locations" is a typo; 900 is marketing
+            best = max(best, n)
+    return best
+
+
+def locations_index(soup):
+    """Does this page point at a locations directory?
+
+    Counting addresses on the homepage misses the most common shape of all:
+    a chain whose homepage carries no address at all because every address
+    lives behind a "Locations" link. The Wash Tub reads as a one-location
+    business by address count and gets told to put its address in the footer -
+    advice that is wrong, and wrong in a way a prospect notices immediately.
+    """
+    try:
+        links = soup.find_all("a")
+    except Exception:
+        return False
+    for a in links:
+        href = (a.get("href") or "").lower()
+        label = " ".join((a.get_text(" ", strip=True) or "").lower().split())
+        if re.search(r"locations|store-?locator|find-a-(location|store|shop|wash)|"
+                     r"where-we-are|near-?(you|me)", href):
+            return True
+        # Plural is the tell. A single-location business links "Location";
+        # a chain links "Locations". Singular alone is not enough to suppress
+        # the address check, so it is deliberately not matched here.
+        if re.search(r"\blocations\b|\bstore locator\b|\bfind a (location|store|wash)\b|"
+                     r"\bnear (you|me)\b", label):
+            return True
+    return False
+
+
+def looks_like_chain(text, soup):
+    """Multi-location, by any of three independent signals.
+
+    Any one is enough. The cost of a false negative (telling a 12-store chain
+    to add one address) is a prospect who stops reading; the cost of a false
+    positive (skipping the address check on a single-location business) is one
+    missing minor finding. Those are not symmetric, so this leans toward
+    calling it a chain.
+    """
+    return (count_locations(text, soup) >= 2
+            or multi_location_pages(soup)
+            or locations_index(soup))
+
+
+def multi_location_pages(soup):
+    """Does the site look like it has a page per location, rather than anchors?"""
+    try:
+        hrefs = [a.get("href") or "" for a in soup.find_all("a")]
+    except Exception:
+        return False
+    real = [h for h in hrefs
+            if re.search(r"/(locations?|offices?|clinics?)/[a-z0-9\-]{2,}", h, re.I)
+            and not h.lstrip().startswith("#")]
+    return len(set(real)) >= 2
+
 def check_local(res: FetchResult, soup: BeautifulSoup) -> tuple[int, list]:
     f = []
     score = 100
@@ -476,18 +589,64 @@ def check_local(res: FetchResult, soup: BeautifulSoup) -> tuple[int, list]:
     has_local_schema = bool(types & local_types) or any(
         "localbusiness" in t for t in types)
 
+    # How many distinct locations does this page actually describe? Telling a
+    # ten-clinic group to "add LocalBusiness JSON-LD with name, phone, address"
+    # produces schema claiming the whole company sits at one address - worse
+    # than none. Count first, then prescribe.
+    n_locs = count_locations(text, soup)
+    chain  = looks_like_chain(text, soup)
+
     if not has_local_schema:
+        if n_locs >= 2 or chain:
+            f.append(finding(
+                "no_localbusiness",
+                ("No structured data for %d locations" % n_locs) if n_locs >= 2
+                else "No structured data for the locations",
+                ("This page describes %d locations and carries no schema.org markup "
+                 "for any of them." % n_locs) if n_locs >= 2 else
+                "This looks like a multi-location business, and neither the homepage "
+                "nor its markup identifies any of the locations to Google.",
+                "Structured data is how a site tells Google that each of these is a "
+                "separate business with its own address and phone. Without it Google "
+                + (("is inferring %d locations from prose - and inference is how one "
+                   "gets left out of the map pack.") % n_locs if n_locs >= 2 else
+                   "is left to infer them, and inference is how a location gets left "
+                   "out of the map pack."),
+                "One LocalBusiness block PER LOCATION, each on its own page, tied "
+                "together under a parent Organization. Not one block for the whole "
+                + (("company - a single address claiming to represent %d locations is "
+                   "worse than none.") % n_locs if n_locs >= 2 else
+                   "company - a single address claiming to represent every location is "
+                   "worse than none."),
+                "serious", 25))
+            score -= 25
+        else:
+            f.append(finding(
+                "no_localbusiness", "No LocalBusiness structured data",
+                "The page has no LocalBusiness schema markup identifying the company, "
+                "phone, address, and service area to Google.",
+                "This is how Google connects the website to the map listing. Without "
+                "it you're weaker in the map pack \u2014 where most local jobs actually "
+                "come from.",
+                "Add LocalBusiness JSON-LD with name, phone, address, geo, hours, and "
+                "areaServed. One script tag; a developer needs 30 minutes.",
+                "serious", 20))
+            score -= 20
+
+    # Many locations sharing one URL is its own finding, and usually the bigger one.
+    if n_locs >= 3 and not multi_location_pages(soup):
         f.append(finding(
-            "no_localbusiness", "No LocalBusiness structured data",
-            "The page has no LocalBusiness schema markup identifying the company, "
-            "phone, address, and service area to Google.",
-            "This is how Google connects the website to the map listing. Without "
-            "it you're weaker in the map pack — where most local jobs actually "
-            "come from.",
-            "Add LocalBusiness JSON-LD with name, phone, address, geo, hours, and "
-            "areaServed. One script tag; a developer needs 30 minutes.",
-            "serious", 20))
-        score -= 20
+            "locations_one_page", "%d locations share a single page" % n_locs,
+            "All %d locations appear as sections of one page rather than each "
+            "having its own." % n_locs,
+            "Google ranks pages, not paragraphs. Somebody searching for your trade "
+            "in one suburb is looking for a page about that suburb - so %d locations "
+            "compete for the authority of a single URL instead of each earning their "
+            "own." % n_locs,
+            "A real page per location, each with that address, phone, hours, map and "
+            "directions. Keep the current page as the hub that links to all of them.",
+            "serious", 25))
+        score -= 25
 
     # NAP — structured data is authoritative over text parsing (kills false positives)
     has_address = any(b.get("address") for b in blocks)
@@ -496,10 +655,14 @@ def check_local(res: FetchResult, soup: BeautifulSoup) -> tuple[int, list]:
             r"\b\d{2,5}\s+[A-Z][A-Za-z0-9 .]{3,40}\b(St|Street|Ave|Avenue|Rd|Road|"
             r"Blvd|Dr|Drive|Ln|Lane|Hwy|Loop|Pkwy|Suite|Ste)\b", text)
         has_address = bool(addr_rx)
-    if not has_address:
+    # A chain's homepage is not supposed to carry one street address - the
+    # addresses live on the location pages. Flagging it says "we only read one
+    # page and didn't notice what kind of company you are."
+    if not has_address and not chain:
         f.append(finding(
-            "no_address", "No street address on the page",
-            "No physical address appears on the homepage (in text or markup).",
+            "no_address", "No street address on the homepage",
+            "No physical address appears on the homepage (in text or markup). "
+            "Other pages were not read for this check.",
             "Customers and Google both use the address to decide you're a real "
             "local company and not a lead-gen front.",
             "Put the full address in the footer and in LocalBusiness markup.",
@@ -508,15 +671,27 @@ def check_local(res: FetchResult, soup: BeautifulSoup) -> tuple[int, list]:
 
     if not soup.select('a[href*="google.com/maps"], a[href*="g.page"], '
                        'a[href*="maps.app.goo.gl"]'):
-        f.append(finding(
-            "no_gbp_link", "No link to the Google Business Profile",
-            "The site never links to its Google listing or map.",
-            "The site and the Google profile should feed each other — reviews, "
-            "directions, and the map pack all live there.",
-            "Link the footer address to the Google Business Profile and embed "
-            "the map on the contact page.",
-            "notice", 6))
-        score -= 6
+        if chain:
+            f.append(finding(
+                "no_gbp_link", "Location pages don't link their Google listings",
+                "No link to a Google Business Profile anywhere on this page.",
+                "A chain has one Google profile per location, and each one should be "
+                "linked from that location's own page - that is the connection Google "
+                "uses to tie the store to the site.",
+                "Link each location page to that location's Google Business Profile "
+                "and embed its map. Not one profile on the homepage.",
+                "notice", 4))
+            score -= 4
+        else:
+            f.append(finding(
+                "no_gbp_link", "No link to the Google Business Profile",
+                "The site never links to its Google listing or map.",
+                "The site and the Google profile should feed each other — reviews, "
+                "directions, and the map pack all live there.",
+                "Link the footer address to the Google Business Profile and embed "
+                "the map on the contact page.",
+                "notice", 6))
+            score -= 6
 
     if not re.search(r"serv(e|ing|ice area)|areas? we (serve|cover)|proudly "
                      r"serving|(san antonio|new braunfels|austin|texas|tx)\b",

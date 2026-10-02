@@ -133,13 +133,38 @@
 
 <div class="wrap">
   <nav>
-    <button data-view="find" data-on="1">Find</button>
+    <button data-view="today" data-on="1">Today</button>
+    <button data-view="find">Find</button>
     <button data-view="list">My list</button>
     <button data-view="setup">Setup</button>
   </nav>
 
   <!-- ══════════ FIND ══════════ -->
-  <section id="v-find">
+  <section id="v-today">
+    <h1>Today</h1>
+    <p class="sub" id="qsub">Who you owe a call or an email, right now.</p>
+    <div class="stats" id="qstats"></div>
+    <details id="wake_box" style="margin:0 0 16px">
+      <summary style="cursor:pointer;color:var(--grit);font-weight:600">
+        Bring back leads that went cold</summary>
+      <div style="padding:11px 0 2px">
+        <p class="note" style="margin:0 0 11px">A lead that finished the sequence
+          goes cold and nothing ever looks at that pile again. This gives them
+          <b>one</b> more approach — once, marked so it can't repeat — and they come
+          back as a <b>call</b>, not another email. Somebody who ignored the whole
+          email ladder has already answered that question.</p>
+        <div class="acts">
+          <button id="wake_check">See who would come back</button>
+          <button class="win hide" id="wake_go">Bring them back</button>
+        </div>
+        <div id="wake_msg"></div>
+        <div id="wake_out" class="note" style="margin-top:9px"></div>
+      </div>
+    </details>
+    <div id="queue"><div class="empty">Loading…</div></div>
+  </section>
+
+  <section id="v-find" class="hide">
     <h1>Find businesses to call</h1>
     <p class="sub">Type what you're looking for. We pull them from Google Maps, check
       each website, and tell you what to say.</p>
@@ -171,8 +196,39 @@
         </div>
       </div>
       <button class="btn" id="findbtn">Find businesses</button>
-      <div class="note">Pulls up to 40. Each search is a couple of Google requests.</div>
+      <div class="note">One city, pulls up to ~40. Each search is a couple of Google requests.</div>
       <div id="findmsg"></div>
+    </div>
+
+    <!-- ── area sweep (geographic slicing) ── -->
+    <div class="card">
+      <label>Or sweep a whole area — every ZIP at once</label>
+      <p class="note" style="margin:2px 0 13px">Uses the <b>“What kind of business?”</b>
+        box above. It runs that search once for every ZIP code in the area, so you get
+        far more than a single city's ~40. Runs in the background — you can watch it fill
+        your list.</p>
+      <div class="two">
+        <div class="field">
+          <label>Area</label>
+          <select id="metro"><option value="">Loading…</option></select>
+        </div>
+        <div class="field">
+          <label>Depth per ZIP</label>
+          <select id="mpages">
+            <option value="1">1 page — cheapest</option>
+            <option value="2" selected>2 pages</option>
+            <option value="3">3 pages — most thorough</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn" id="sweepbtn">Sweep this area</button>
+      <div class="note" id="sweepest"></div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;
+                    font-size:13px;font-weight:600;color:var(--ink2)">
+        <input type="checkbox" id="mrestart" style="width:auto">
+        Start this area over (re-sweep ZIPs I already did)
+      </label>
+      <div id="sweepmsg"></div>
     </div>
 
     <div class="card">
@@ -229,6 +285,139 @@ Nicha's, nichas.com, (210) 555-0134"></textarea>
     </div>
 
     <div class="card">
+      <h3 style="margin:0 0 4px;font-size:16px">Calling (Telnyx)</h3>
+      <p class="note" style="margin:0 0 13px">Click a lead's <b>Call via Telnyx</b> button on the
+        Today queue and it dials <b>your own phone</b> first - only once you pick up does it dial
+        the lead and connect you both. Nothing here ever dials the lead on its own; that's what
+        keeps this inside the manual-dialing rule for calling cell phones.</p>
+      <div class="field">
+        <label>Telnyx API key</label>
+        <input id="s_tnx_key" placeholder="KEY••••••• — saved, type to replace" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Voice API Application ID (connection ID)</label>
+        <input id="s_tnx_conn" placeholder="From Telnyx Mission Control → Voice → Programmable Voice">
+      </div>
+      <div class="two">
+        <div class="field"><label>Your Telnyx phone number</label><input id="s_tnx_from" placeholder="(210) 555-0100"></div>
+        <div class="field"><label>Your own cell/office number</label><input id="s_tnx_rep" placeholder="(210) 555-0199"></div>
+      </div>
+      <p class="note" id="tnx_webhook_note" style="margin:10px 0 0"></p>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 4px;font-size:16px">Mailbox (reply &amp; bounce detection)</h3>
+      <p class="note" style="margin:0 0 13px">Without this, every email you send stays
+        <b>unmeasured</b> - a dead address and a prospect who wasn't interested look identical,
+        so there's no way to tell a list problem from a copy problem. This reads the mailbox
+        <b>read-only</b> (it never sends, deletes, moves or marks anything read) and gives each
+        sent email a real outcome. Bounces, out-of-offices and autoresponders are filed
+        automatically; a real human answer is left for you to judge with one tap, because a
+        scoreboard fed by a guessing machine is no better than an empty one.</p>
+      <div class="two">
+        <div class="field"><label>IMAP host</label>
+          <input id="s_imap_host" placeholder="mail.privateemail.com"></div>
+        <div class="field"><label>Mailbox address</label>
+          <input id="s_imap_user" placeholder="daniel@thewatsonfactor.dev"></div>
+      </div>
+      <div class="field">
+        <label>Mailbox password</label>
+        <input id="s_imap_pw" type="password" autocomplete="new-password"
+               placeholder="saved - type to replace">
+        <p class="note" style="margin:6px 0 0">Stored in this app's own settings on your Mac.
+          Namecheap PrivateEmail uses your normal mailbox password.</p>
+      </div>
+      <button class="btn" id="scanbtn" style="margin-top:10px">Scan the mailbox now</button>
+      <div id="scanmsg"></div>
+      <div id="scanout" class="note" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 4px;font-size:16px">What this business sells</h3>
+      <p class="note" style="margin:0 0 13px">Every cold email is built from three
+        sentences per offer, and the engine will not write one until they exist — that's
+        deliberate, so a new business can never go out borrowing somebody else's pitch.
+        Write them the way you'd say them out loud to an owner.</p>
+      <details id="intake_box" style="margin:0 0 14px">
+        <summary style="cursor:pointer;color:var(--grit);font-weight:600">
+          Start from a few questions instead of a blank form</summary>
+        <div style="padding:12px 0 2px">
+          <p class="note" style="margin:0 0 12px">The system can read a website and see
+            what a business <i>sells</i>. It can never see what's broken at a customer the
+            moment before they buy — and that's the part that decides who gets written to.
+            Only you know it, so it's the one thing worth typing out.</p>
+          <div class="two">
+            <div class="field"><label>Your website</label>
+              <input id="in_domain" placeholder="stampschiropractic.com"></div>
+            <div class="field"><label>What you sell</label>
+              <input id="in_sells" placeholder="chiropractic care for accident injuries"></div>
+          </div>
+          <div class="field"><label>Who buys it</label>
+            <input id="in_buyer" placeholder="people hurt in car wrecks around New Braunfels"></div>
+          <div id="in_offers"></div>
+          <div class="acts" style="margin-top:10px">
+            <button id="in_add">Add another thing you sell</button>
+            <button class="win" id="in_go">Build the draft</button>
+          </div>
+          <div id="in_msg"></div>
+        </div>
+      </details>
+
+      <div id="offers"></div>
+      <div class="acts" style="margin-top:12px">
+        <button id="offer_add">Add an offer</button>
+        <button class="win" id="offer_save">Save offers</button>
+      </div>
+      <div id="offer_msg"></div>
+      <div id="offer_out" class="note" style="margin-top:9px"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 4px;font-size:16px">Snapshots</h3>
+      <p class="note" style="margin:0 0 13px">A snapshot is this business's
+        <i>configuration</i> in a file — the offers, the call windows, how many days
+        between follow-ups. Load it into the next customer and their setup is a
+        tune, not a build.<br>
+        It carries none of the things that make this workspace <i>this</i> workspace:
+        no sender name or address, no phone numbers, no API keys, no hostname, no
+        sending cap, and not one lead, contact or email. That isn't a filter —
+        those are never read.</p>
+      <div class="two">
+        <div class="field"><label>Call it</label>
+          <input id="snap_name" placeholder="Chiropractic clinic"></div>
+        <div class="field"><label>Vertical (optional)</label>
+          <input id="snap_vert" placeholder="chiro"></div>
+      </div>
+      <p class="note" style="margin:0 0 10px">Naming the vertical is what pulls its
+        calling hours into the file.</p>
+      <div class="acts">
+        <button class="win" id="snap_export">Save a snapshot of this business</button>
+      </div>
+      <div id="snap_msg"></div>
+      <div id="snap_out" class="note" style="margin-top:9px"></div>
+
+      <details style="margin:16px 0 0;border-top:1px solid rgba(255,255,255,.08);padding-top:14px">
+        <summary style="cursor:pointer;color:var(--grit);font-weight:600">
+          Load a snapshot into this business</summary>
+        <div style="padding:12px 0 2px">
+          <p class="note" style="margin:0 0 11px">This <b>replaces</b> the offers below —
+            it does not merge. Read every sentence afterwards: a snapshot carries the
+            shape of a pitch, not the facts about this business.</p>
+          <div class="field">
+            <input type="file" id="snap_file" accept=".json,application/json"></div>
+          <div class="field"><label>Or paste it</label>
+            <textarea id="snap_paste" rows="4"
+                      placeholder='{"just_grit_snapshot": 1, ...}'></textarea></div>
+          <label class="note" style="display:block;margin:2px 0 10px">
+            <input type="checkbox" id="snap_over"> Replace the offers that are already here
+          </label>
+          <div class="acts"><button class="win" id="snap_import">Load it</button></div>
+          <div id="snap_imsg"></div>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
       <h3 style="margin:0 0 4px;font-size:16px">Who can sign in</h3>
       <p class="note" style="margin:0 0 13px">Email addresses allowed to open this,
         separated by commas. Leave blank to allow anyone your Cloudflare sign-in lets through.</p>
@@ -277,9 +466,10 @@ const msg = (el, text, kind="ok") =>
 $$("nav button").forEach(b => b.onclick = () => {
   $$("nav button").forEach(x => x.dataset.on = "0");
   b.dataset.on = "1";
-  ["find","list","setup"].forEach(v =>
+  ["today","find","list","setup"].forEach(v =>
     $("#v-"+v).classList.toggle("hide", v !== b.dataset.view));
   if(b.dataset.view === "list") load();
+  if(b.dataset.view === "today") loadQueue();
   window.scrollTo({top:0});
 });
 
@@ -296,6 +486,20 @@ async function loadMe(){
   $("#s_addr").value  = ME.sender_address || "";
   $("#s_allow").value = ME.allowed_emails || "";
   if(ME.has_google_key) $("#s_key").placeholder = "•••••••• saved — type to replace";
+  $("#s_tnx_conn").value = ME.telnyx_connection_id || "";
+  $("#s_tnx_from").value = ME.telnyx_from_number || "";
+  $("#s_tnx_rep").value  = ME.telnyx_rep_number || "";
+  $("#s_imap_host").value = ME.imap_host || "";
+  $("#s_imap_user").value = ME.imap_user || "";
+  if(ME.telnyx_webhook_url) $("#tnx_webhook_note").innerHTML =
+    `Paste this as the webhook URL on your Telnyx <b>Voice API Application</b> (used for
+     Call via Telnyx above), and add a Cloudflare Access <b>bypass</b> policy for
+     <code>/webhooks/*</code> on this hostname (Access would otherwise show Telnyx a
+     login page instead of your app):<br>
+     <code style="user-select:all">${esc(ME.telnyx_webhook_url)}</code><br><br>
+     If you set up an <b>AI Assistant</b> to answer incoming calls, paste this as its
+     Webhook tool URL instead so every call gets logged into Just Grit:<br>
+     <code style="user-select:all">${esc(ME.telnyx_assistant_webhook_url || "")}</code>`;
 }
 
 $("#savebtn").onclick = async () => {
@@ -305,14 +509,296 @@ $("#savebtn").onclick = async () => {
       sender_name: $("#s_name").value, sender_phone: $("#s_phone").value,
       sender_site: $("#s_site").value, sender_address: $("#s_addr").value,
       allowed_emails: $("#s_allow").value,
+      telnyx_api_key: $("#s_tnx_key").value,
+      telnyx_connection_id: $("#s_tnx_conn").value,
+      telnyx_from_number: $("#s_tnx_from").value,
+      telnyx_rep_number: $("#s_tnx_rep").value,
+      imap_host: $("#s_imap_host").value,
+      imap_user: $("#s_imap_user").value,
+      imap_password: $("#s_imap_pw").value,
     })});
+    $("#s_imap_pw").value = "";
     $("#s_key").value = "";
+    $("#s_tnx_key").value = "";
     await loadMe();
     msg($("#savemsg"), "Saved.");
   }catch(e){ msg($("#savemsg"), e.message, "err"); }
 };
 
-/* ── find ── */
+/* ═══════════════ OFFERS — what this business sells ═══════════════
+   The three sentences per offer are not a form to fill in, they are the email.
+   Labels below say where each one lands so somebody writing copy can see the
+   shape of what they're building rather than guessing at field names. */
+
+let OFFERS = [];          // [{name, tail, cost, fix, evidence, question, i0, i1}]
+let OFFERS_LOCKED = false;
+
+function offerRow(o, i){
+  const ro = OFFERS_LOCKED ? " disabled" : "";
+  const f = (k, v) => `data-k="${k}" data-i="${i}" value="${esc(v || "")}"${ro}`;
+  return `<div class="card" style="margin:10px 0;background:rgba(255,255,255,.02)">
+    <div class="two">
+      <div class="field"><label>Offer name</label>
+        <input ${f("name", o.name)} placeholder="After-Hours Line"></div>
+      <div class="field"><label>Subject line ending</label>
+        <input ${f("tail", o.tail)} placeholder="the calls coming in after you close"></div>
+    </div>
+    <p class="note" style="margin:-4px 0 10px">Their subject reads
+      <b>${esc(o.name || "Company")} — ${esc(o.tail || "…")}</b></p>
+    <div class="field"><label>What it's costing them</label>
+      <input ${f("cost", o.cost)}
+        placeholder="Somebody rear-ended at nine at night books with whoever picks up."></div>
+    <div class="field"><label>What you'd do about it</label>
+      <input ${f("fix", o.fix)}
+        placeholder="I put something on your line that answers every time and texts the front desk."></div>
+    <div class="field"><label>When to pitch this <span class="note">— words in their
+      reviews or site findings that mean this offer is the right one</span></label>
+      <input ${f("evidence", o.evidence)} placeholder="voicemail|after.?hours|no one answers"></div>
+    <div class="field"><label>Question version <span class="note">— for the variant that
+      asks instead of pitching. Put %s where the business name goes.</span></label>
+      <input ${f("question", o.question)}
+        placeholder="When somebody calls %s after seven, where does that call end up?"></div>
+    <div class="two">
+      <div class="field"><label>Impact — the short line</label>
+        <input ${f("i0", o.i0)} placeholder="answering at nine at night"></div>
+      <div class="field"><label>Impact — the setup line</label>
+        <input ${f("i1", o.i1)} placeholder="the call that would have gone to voicemail"></div>
+    </div>
+    ${OFFERS_LOCKED ? "" :
+      `<div class="acts"><button data-drop="${i}">Remove this offer</button></div>`}
+  </div>`;
+}
+
+function renderOffers(){
+  const box = $("#offers");
+  if(!OFFERS.length){
+    box.innerHTML = `<p class="note">No offers yet — this business can't draft outreach
+      until at least one exists.</p>`;
+  } else {
+    box.innerHTML = OFFERS.map((o, i) => offerRow(o, i)).join("");
+  }
+  $$("#offers input").forEach(el => {
+    el.oninput = () => {
+      OFFERS[+el.dataset.i][el.dataset.k] = el.value;
+      // only the two that change the preview need a redraw
+      if(el.dataset.k === "name" || el.dataset.k === "tail"){
+        const p = el.closest(".card").querySelector("p.note b");
+        const o = OFFERS[+el.dataset.i];
+        if(p) p.textContent = `${o.name || "Company"} — ${o.tail || "…"}`;
+      }
+    };
+  });
+  $$("#offers [data-drop]").forEach(b => b.onclick = () => {
+    OFFERS.splice(+b.dataset.drop, 1); renderOffers();
+  });
+}
+
+async function loadOffers(){
+  let r;
+  try{ r = await api("/api/catalog"); }
+  catch(e){ $("#offers").innerHTML = `<div class="errbox">${esc(e.message)}</div>`; return; }
+  OFFERS_LOCKED = !!r.builtin;
+  OFFERS = Object.entries(r.offers || {}).map(([name, o]) => ({
+    name, tail: o.tail, cost: o.cost, fix: o.fix, evidence: o.evidence,
+    question: o.question, i0: (o.impact || [])[0], i1: (o.impact || [])[1],
+  }));
+  renderOffers();
+  if(OFFERS_LOCKED){
+    $("#offer_add").disabled = true;
+    $("#offer_save").disabled = true;
+    $("#offer_out").innerHTML = `This business's copy lives in the code, where it was
+      written line by line — editing it here would fork it. Shown so you can see the
+      shape when writing a new one.`;
+  }
+}
+
+/* ── intake: four questions per offer, then the form fills itself ── */
+let INTAKE = [{}];
+
+function intakeRow(o, i){
+  const f = (k, ph) => `<div class="field"><label>${ph[0]}</label>
+    <input data-ik="${k}" data-ii="${i}" value="${esc(o[k] || "")}" placeholder="${ph[1]}"></div>`;
+  return `<div class="card" style="margin:10px 0;background:rgba(255,255,255,.02)">
+    ${f("name", ["What do you call it", "After-Hours Line"])}
+    ${f("trigger", ["What's wrong with them right before they buy from you",
+                    "patients call after six and get voicemail, so they book somewhere else"])}
+    ${f("costs", ["What is that costing them",
+                  "the patient books with whoever picks up first"])}
+    ${f("does", ["What do you do about it",
+                 "we answer every call around the clock and text the front desk"])}
+    ${INTAKE.length > 1 ? `<div class="acts"><button data-idrop="${i}">Remove</button></div>` : ""}
+  </div>`;
+}
+
+function renderIntake(){
+  $("#in_offers").innerHTML = INTAKE.map((o, i) => intakeRow(o, i)).join("");
+  $$("#in_offers input").forEach(el => {
+    el.oninput = () => { INTAKE[+el.dataset.ii][el.dataset.ik] = el.value; };
+  });
+  $$("#in_offers [data-idrop]").forEach(b => b.onclick = () => {
+    INTAKE.splice(+b.dataset.idrop, 1); renderIntake();
+  });
+}
+renderIntake();
+
+$("#in_add").onclick = () => { INTAKE.push({}); renderIntake(); };
+
+$("#in_go").onclick = async () => {
+  try{
+    const r = await api("/api/intake", {method:"POST", body: JSON.stringify({
+      domain: $("#in_domain").value, sells: $("#in_sells").value,
+      buyer: $("#in_buyer").value, offers: INTAKE,
+    })});
+    const drafted = r.draft.offers || {};
+    if(!Object.keys(drafted).length){
+      msg($("#in_msg"), (r.notes || []).join(" ") ||
+        "Nothing to build yet — each offer needs all four answers.", "err");
+      return;
+    }
+    // Load the draft into the editable form. Nothing is saved until Save offers.
+    OFFERS = Object.entries(drafted).map(([name, o]) => ({
+      name, tail: o.tail, cost: o.cost, fix: o.fix, evidence: o.evidence,
+      question: o.question, i0: (o.impact||[])[0], i1: (o.impact||[])[1],
+    }));
+    renderOffers();
+    $("#intake_box").open = false;
+    msg($("#in_msg"), "Draft built.");
+    $("#offer_out").innerHTML =
+      `Draft ready below — <b>nothing is saved yet</b>. Read the
+       <b>“When to pitch this”</b> line on each one: that's what decides who gets
+       written to, and it was guessed from your sentence. Fix anything that looks
+       wrong, then Save offers.` +
+      ((r.notes || []).length ? "<br><br>" + r.notes.map(esc).join("<br>") : "");
+  }catch(e){ msg($("#in_msg"), e.message, "err"); }
+};
+
+$("#offer_add").onclick = () => { OFFERS.push({}); renderOffers(); };
+
+$("#offer_save").onclick = async () => {
+  const offers = {};
+  for(const o of OFFERS){
+    const name = (o.name || "").trim();
+    if(!name) continue;
+    const e = {tail: (o.tail||"").trim(), cost: (o.cost||"").trim(), fix: (o.fix||"").trim()};
+    if((o.evidence||"").trim()) e.evidence = o.evidence.trim();
+    if((o.question||"").trim()) e.question = o.question.trim();
+    if((o.i0||"").trim() && (o.i1||"").trim()) e.impact = [o.i0.trim(), o.i1.trim()];
+    offers[name] = e;
+  }
+  try{
+    const r = await api("/api/catalog", {method:"POST", body: JSON.stringify({catalog:{offers}})});
+    msg($("#offer_msg"), "Saved.");
+    $("#offer_out").innerHTML = r.note
+      ? `<b>${esc(r.saved.join(", "))}</b> saved. ${esc(r.note)} — an offer needs a name plus
+         all three sentences, or the email it builds would be half written.`
+      : `<b>${esc(r.saved.join(", "))}</b> saved. This business can draft outreach.`;
+    await loadOffers();
+  }catch(e){
+    msg($("#offer_msg"), e.message, "err");
+  }
+};
+
+/* ── snapshots: a business's configuration, as a file ── */
+$("#snap_export").onclick = async () => {
+  const b = $("#snap_export");
+  b.disabled = true;
+  $("#snap_out").innerHTML = "";
+  try{
+    const q = new URLSearchParams({name: $("#snap_name").value.trim(),
+                                   vertical: $("#snap_vert").value.trim()});
+    const r = await api("/api/snapshot?" + q.toString());
+    const blob = new Blob([JSON.stringify(r.snapshot, null, 2)],
+                          {type:"application/json"});
+    const slug = (r.snapshot.vertical || r.snapshot.name || "snapshot")
+                   .toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `just-grit-${slug || "snapshot"}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    msg($("#snap_msg"), "Saved to your downloads.");
+    let html = `<b>${r.offers.length}</b> offer(s) packaged:
+                ${esc(r.offers.join(", "))}.<br>${esc(r.excluded)}`;
+    if((r.warnings || []).length){
+      html += `<br><br><b>Worth a look before you send this to anyone:</b><br>` +
+              r.warnings.map(w => esc(w)).join("<br>");
+    }
+    $("#snap_out").innerHTML = html;
+  }catch(e){
+    msg($("#snap_msg"), e.message, "err");
+  }finally{
+    b.disabled = false;
+  }
+};
+
+$("#snap_import").onclick = async () => {
+  const b = $("#snap_import");
+  const f = $("#snap_file").files[0];
+  let raw = $("#snap_paste").value.trim();
+  b.disabled = true;
+  try{
+    if(f) raw = await f.text();
+    if(!raw) throw new Error("Pick a snapshot file, or paste one in.");
+    let parsed;
+    try{ parsed = JSON.parse(raw); }
+    catch{ throw new Error("That isn't valid JSON — paste the whole file, braces and all."); }
+    const r = await api("/api/snapshot", {method:"POST", body: JSON.stringify(
+      {snapshot: parsed, overwrite: $("#snap_over").checked})});
+    msg($("#snap_imsg"), `Loaded: ${r.loaded.join(", ")}.`);
+    $("#snap_paste").value = ""; $("#snap_file").value = "";
+    await loadOffers();
+  }catch(e){
+    msg($("#snap_imsg"), e.message, "err");
+  }finally{
+    b.disabled = false;
+  }
+};
+
+/* ── mailbox scan ── */
+$("#scanbtn").onclick = async () => {
+  const b = $("#scanbtn");
+  b.disabled = true; b.textContent = "Reading the mailbox...";
+  $("#scanout").innerHTML = "";
+  try{
+    const r = await api("/api/inbox/scan", {method:"POST", body: JSON.stringify({days:60})});
+    const k = r.by_kind || {};
+    const bits = Object.keys(k).sort().map(x => `<b>${k[x]}</b> ${esc(x.replace(/_/g," "))}`);
+    let html = `Read ${r.scanned} messages from the last 60 days and matched
+                <b>${r.matched}</b> of them to emails you sent.`;
+    if(bits.length) html += "<br>" + bits.join(" &middot; ");
+    if(!r.matched) html += `<br><br>Nothing matched. That itself is information: either
+                            nothing has come back yet, or replies are arriving at a different
+                            address than the one you send from.`;
+    const tap = r.needs_a_tap || [];
+    if(tap.length){
+      html += `<br><br><b>${tap.length} real ${tap.length===1?"reply needs":"replies need"}
+               your call</b> - open the Outbox to mark them:`;
+      html += "<ul style='margin:6px 0 0;padding-left:18px'>" + tap.map(t =>
+        `<li>${esc(t.from)} - "${esc((t.preview||"").slice(0,110))}"</li>`).join("") + "</ul>";
+    }
+    if(r.call_backs_queued){
+      html += `<br><br><b>${r.call_backs_queued}</b> of them
+               ${r.call_backs_queued===1?"is":"are"} now at the top of Today as a
+               call back. They wrote to you — ring them before the cold list.`;
+    }
+    const moved = r.retargeted || [];
+    if(moved.length){
+      html += `<br><br><b>${moved.length} bounced address${moved.length===1?"":"es"}
+               — moved to the next person at the same business:</b>`;
+      html += "<ul style='margin:6px 0 0;padding-left:18px'>" + moved.map(x =>
+        `<li>${esc(x.from)} → <b>${esc(x.to)}</b></li>`).join("") + "</ul>";
+    }
+    if(r.bounced_with_no_alternative){
+      html += `<br><br>${r.bounced_with_no_alternative} bounced with nobody else
+               to try there. Those need a name found before they're worth anything.`;
+    }
+    $("#scanout").innerHTML = html;
+    msg($("#scanmsg"), "Done.");
+  }catch(e){ msg($("#scanmsg"), e.message, "err"); }
+  b.disabled = false; b.textContent = "Scan the mailbox now";
+};
+
+/* ── find (single city) ── */
 $("#findbtn").onclick = async () => {
   const q = $("#q").value.trim();
   if(!q) return;
@@ -329,6 +815,75 @@ $("#findbtn").onclick = async () => {
   }catch(e){ msg($("#findmsg"), e.message, "err"); }
   btn.disabled = false; btn.textContent = "Find businesses";
 };
+
+/* ── area sweep ── */
+let METROS = [], SWEEP_TIMER = null;
+
+async function loadMetros(){
+  try{
+    const d = await api("/api/metros");
+    METROS = d.metros || [];
+    $("#metro").innerHTML = METROS.length
+      ? METROS.map(m => `<option value="${esc(m.key)}">${esc(m.label)} — ${m.zips} ZIPs</option>`).join("")
+      : `<option value="">No areas defined yet</option>`;
+    updateEst();
+  }catch(e){ $("#metro").innerHTML = `<option value="">${esc(e.message)}</option>`; }
+}
+function updateEst(){
+  const m = METROS.find(x => x.key === $("#metro").value);
+  const pages = +$("#mpages").value || 2;
+  $("#sweepest").textContent = m
+    ? `${m.label}: ${m.zips} ZIPs × ${pages} page${pages>1?"s":""} = up to ${m.zips*pages} Google requests.`
+    : "";
+}
+
+$("#sweepbtn").onclick = async () => {
+  const q = $("#q").value.trim();
+  if(!q){ msg($("#sweepmsg"), "Type a business type in the box above first.", "warn"); return; }
+  const metro = $("#metro").value;
+  if(!metro){ msg($("#sweepmsg"), "Pick an area to sweep.", "warn"); return; }
+  const btn = $("#sweepbtn"); btn.disabled = true; btn.textContent = "Starting…";
+  try{
+    const r = await api("/api/find_metro", {method:"POST", body: JSON.stringify({
+      query:q, metro, vertical:$("#vert").value, pages:+$("#mpages").value,
+      restart:$("#mrestart").checked })});
+    watchSweep(r.sweep_id, r);
+  }catch(e){
+    msg($("#sweepmsg"), e.message, "err");
+    btn.disabled = false; btn.textContent = "Sweep this area";
+  }
+};
+
+function watchSweep(sid, start){
+  const btn = $("#sweepbtn"); btn.disabled = true; btn.textContent = "Sweeping…";
+  const skip = start.already_done ? ` (${start.already_done} already done, skipped)` : "";
+  clearTimeout(SWEEP_TIMER);
+  (async function tick(){
+    let s;
+    try{ s = await api("/api/sweep/" + sid); }
+    catch(e){ msg($("#sweepmsg"), e.message, "err");
+              btn.disabled = false; btn.textContent = "Sweep this area"; return; }
+    if(s.state === "running"){
+      $("#sweepmsg").innerHTML =
+        `<div class="okbox" style="margin:14px 0 0"><i class="spin"></i>` +
+        `Swept ${s.done}/${s.total} ZIPs${esc(skip)} · ${s.added} new so far` +
+        `${s.current ? ` · on ${esc(s.current)}` : ""}</div>`;
+      SWEEP_TIMER = setTimeout(tick, 2000);
+    } else if(s.state === "done"){
+      msg($("#sweepmsg"), `Done — ${s.done} ZIPs swept, ${s.added} new prospects added ` +
+        `(${s.found} found, ${s.skipped} were duplicates or closed). Opening your list…`);
+      btn.disabled = false; btn.textContent = "Sweep this area";
+      setTimeout(()=>$$("nav button")[1].click(), 1300);
+    } else {
+      msg($("#sweepmsg"), "Stopped: " + (s.error || "unknown error") +
+        " — fix it, then sweep again to pick up where it left off.", "err");
+      btn.disabled = false; btn.textContent = "Sweep this area";
+    }
+  })();
+}
+
+$("#metro").onchange = updateEst;
+$("#mpages").onchange = updateEst;
 
 $("#addbtn").onclick = async () => {
   const text = $("#paste").value.trim();
@@ -388,6 +943,7 @@ function card(p){
       ${tel ? `<a class="call" href="tel:${esc(tel)}">Call</a>` : ""}
       <button data-act="email">Email</button>
       ${p.domain ? `<a href="/report?url=${encodeURIComponent(p.domain)}" target="_blank">Report</a>` : ""}
+      ${p.domain ? `<a href="/report.pdf?url=${encodeURIComponent(p.domain)}">PDF</a>` : ""}
       <button data-act="called">Called</button>
       <button class="win" data-act="booked">Booked</button>
       <button data-act="dead">Not interested</button>
@@ -452,7 +1008,206 @@ async function showEmail(id){
 }
 $("#dlgclose").onclick = () => $("#dlg").close();
 
-loadMe().catch(e => $("#who").textContent = e.message);
+
+/* ═══════════════ TODAY — the outreach queue ═══════════════
+   One question this screen answers: who do I owe a touch, right now.
+   Logging an outcome schedules the next touch automatically, so nothing
+   has to be remembered. */
+
+const OUTCOMES = [
+  ["no_answer",    "No answer",      ""],
+  ["left_message", "Left message",   ""],
+  ["spoke",        "Talked to them", "win"],
+  ["booked",       "Booked!",        "win"],
+  ["dead",         "Not interested", ""],
+  ["corporate",    "Corporate",      ""],
+];
+
+function qcard(p){
+  const backAtUs = p.next_action === "call_back";
+  const isEmail = p.next_action === "email";
+  const tel = (p.phone || "").replace(/[^\d+]/g, "");
+  /* Somebody answered. That card outranks every cold name on the list, and
+     it should not look like one. */
+  const badge = backAtUs
+    ? `<span class="flag" style="color:var(--good);border-color:rgba(74,163,94,.55);
+        background:rgba(74,163,94,.16);font-weight:700">THEY REPLIED — CALL BACK</span>`
+    : isEmail
+    ? `<span class="flag" style="color:var(--grit);border-color:rgba(232,163,61,.4);
+        background:rgba(232,163,61,.1)">EMAIL</span>`
+    : `<span class="flag st">CALL</span>`;
+  const overdue = p.when === "overdue";
+  const due = overdue
+    ? `<span class="flag" style="color:var(--bad);border-color:rgba(208,59,59,.4);
+        background:rgba(208,59,59,.1)">overdue</span>`
+    : p.when === "later"
+      ? `<span class="flag">${esc((p.next_due||"").slice(5))}</span>` : "";
+
+  const btns = OUTCOMES.map(([k,label,cls]) =>
+    `<button class="${cls}" data-q="${k}" data-id="${p.id}">${esc(label)}</button>`).join("");
+
+  /* A reply is never off-hours. They contacted us; the window is now. */
+  const offHours = !isEmail && !backAtUs && p.call_window && !p.callable_now;
+  return `<div class="p" data-qid="${p.id}" style="${backAtUs?'border-color:rgba(74,163,94,.55)':overdue?'border-color:rgba(208,59,59,.35)':''}${offHours?';opacity:.62':''}">
+    <div class="ptop">
+      <div class="pname">
+        <h3>${esc(p.company || p.domain)}</h3>
+        <div class="pmeta">${badge} ${due}
+          ${p.touch_count ? `<span class="flag">touch ${esc(p.touch_count+1)}</span>` : ""}
+          ${!isEmail && !backAtUs && p.call_window ? (p.callable_now
+              ? `<span class="flag" style="color:var(--good);border-color:rgba(74,163,94,.4);
+                   background:rgba(74,163,94,.1)">good time now</span>`
+              : `<span class="flag" title="Their busy hours - you'd get the closest warm body">
+                   best ${esc(p.call_window)}</span>`) : ""}
+          ${p.phone ? " · " + esc(p.phone) : ""}</div>
+      </div>
+    </div>
+    <div class="line"><span>Say this</span>${esc(p.line || "ask how they get new customers")}</div>
+    ${p.why ? `<div class="pmeta" style="margin-top:9px">${esc(p.why)}</div>` : ""}
+    <div class="acts">
+      ${tel && !isEmail ? `<a class="call" href="tel:${esc(tel)}">Call</a>` : ""}
+      ${tel ? `<button data-act="tnx" data-id="${p.id}">Call via Telnyx</button>` : ""}
+      <button data-act="email">${isEmail ? "Open email" : "Email"}</button>
+      ${p.domain ? `<a href="/report?url=${encodeURIComponent(p.domain)}" target="_blank">Report</a>` : ""}
+    </div>
+    <div class="acts" style="margin-top:9px;padding-top:10px;
+         border-top:1px solid rgba(255,255,255,.08)">${btns}</div>
+    <div class="acts hide" data-when="${p.id}" style="margin-top:9px">
+      <span class="pmeta" style="align-self:center">Call back in:</span>
+      <button data-days="2" data-id="${p.id}">2 days</button>
+      <button data-days="7" data-id="${p.id}">1 week</button>
+      <button data-days="14" data-id="${p.id}">2 weeks</button>
+      <button data-days="30" data-id="${p.id}">1 month</button>
+    </div>
+  </div>`;
+}
+
+/* ── bring back the cold pile: preview, then apply ── */
+$("#wake_check").onclick = async () => {
+  const b = $("#wake_check");
+  b.disabled = true;
+  $("#wake_out").innerHTML = ""; $("#wake_msg").innerHTML = "";
+  try{
+    const r = await api("/api/queue/reawaken", {method:"POST",
+      body: JSON.stringify({apply:false})});
+    $("#wake_go").classList.toggle("hide", !r.would_wake);
+    if(!r.would_wake){
+      $("#wake_out").innerHTML = `Nothing is due. <b>${r.cold_total}</b> cold,
+        <b>${r.already_had_their_second_chance}</b> already had their one more try,
+        and the rest haven't been cold ${r.days} days yet.`;
+      return;
+    }
+    const names = r.prospects.map(p =>
+      `${esc(p.company || "(unnamed)")} <span class="flag">cold since ${esc(p.cold_since || "?")}</span>`);
+    $("#wake_out").innerHTML =
+      `<b>${r.would_wake}</b> of <b>${r.cold_total}</b> cold leads have been quiet
+       ${r.days}+ days and haven't been tried a second time:<br><br>` +
+      names.join("<br>");
+  }catch(e){ msg($("#wake_msg"), e.message, "err"); }
+  finally{ b.disabled = false; }
+};
+
+$("#wake_go").onclick = async () => {
+  const b = $("#wake_go");
+  b.disabled = true;
+  try{
+    const r = await api("/api/queue/reawaken", {method:"POST",
+      body: JSON.stringify({apply:true})});
+    msg($("#wake_msg"), `${r.woke} back on the call list for today.`);
+    $("#wake_go").classList.add("hide");
+    $("#wake_out").innerHTML = "";
+    $("#wake_box").open = false;
+    await loadQueue();
+  }catch(e){ msg($("#wake_msg"), e.message, "err"); }
+  finally{ b.disabled = false; }
+};
+
+async function loadQueue(){
+  let d;
+  try{ d = await api("/api/queue"); }
+  catch(e){ $("#queue").innerHTML = `<div class="errbox">${esc(e.message)}</div>`; return; }
+
+  const st = d.stats || {};
+  $("#qstats").innerHTML = [
+    ["Overdue", st.overdue || 0, (st.overdue ? "var(--bad)" : "var(--dim)")],
+    ["Due today", st.today || 0, "var(--grit)"],
+    ["Good time now", st.callable_now || 0, (st.callable_now ? "var(--good)" : "var(--dim)")],
+    ["Done today", st.touches_today || 0, "var(--good)"],
+    ["Booked", st.booked || 0, "var(--good)"],
+  ].map(([k,v,c]) =>
+    `<div class="stat"><div class="k">${esc(k)}</div>
+       <div class="v" style="color:${c}">${esc(v)}</div></div>`).join("");
+
+  const due  = d.queue.filter(p => p.when !== "later");
+  const soon = d.queue.filter(p => p.when === "later");
+
+  $("#qsub").textContent = due.length
+    ? `${due.length} to get through. Log what happened and the next one schedules itself.`
+    : "Nothing due right now.";
+
+  $("#queue").innerHTML =
+    (due.length ? due.map(qcard).join("")
+      : `<div class="empty">Nothing due today.${soon.length ? "" :
+          " Go to <b>Find</b> to add businesses."}</div>`) +
+    (soon.length ? `<h1 style="font-size:16px;margin:26px 0 10px;color:var(--dim)">Coming up</h1>`
+                   + soon.map(qcard).join("") : "");
+
+  $$("#queue [data-act='tnx']").forEach(b => b.onclick = () => telnyxCall(b));
+  $$("#queue [data-q]").forEach(b => b.onclick = () => outcome(b));
+  $$("#queue [data-days]").forEach(b => b.onclick = () =>
+    sendTouch(b.dataset.id, "spoke", +b.dataset.days));
+  $$("#queue [data-act='email']").forEach(b => b.onclick = () =>
+    showEmail(b.closest(".p").dataset.qid));
+}
+
+/* Dials YOUR phone first; answering it is what connects the lead. The route
+   has existed since the Telnyx build - there was just never a button on this
+   screen to press, which is why the dialer sat at one logged call while
+   Setup cheerfully told you to click a button that didn't exist. */
+async function telnyxCall(btn){
+  const id = btn.dataset.id;
+  const was = btn.textContent;
+  btn.disabled = true; btn.textContent = "Ringing you...";
+  try{
+    const r = await api(`/api/prospect/${id}/call`, {method:"POST"});
+    btn.textContent = "Answer your phone";
+    setTimeout(() => { btn.disabled = false; btn.textContent = was; }, 8000);
+  }catch(e){
+    alert(e.message);
+    btn.disabled = false; btn.textContent = was;
+  }
+}
+
+function outcome(btn){
+  const id = btn.dataset.id, kind = btn.dataset.q;
+  if(kind === "spoke"){            // ask when to come back
+    const row = document.querySelector(`[data-when="${id}"]`);
+    if(row) row.classList.remove("hide");
+    return;
+  }
+  if(kind === "dead" && !confirm("Mark not interested? They go on the permanent do-not-contact list.")) return;
+  sendTouch(id, kind);
+}
+
+async function sendTouch(id, outcome, days){
+  const card = document.querySelector(`[data-qid="${id}"]`);
+  if(card) card.style.opacity = ".45";
+  try{
+    const r = await api(`/api/prospect/${id}/touch`, {method:"POST",
+      body: JSON.stringify({outcome, days: days ?? null})});
+    if(card){
+      card.innerHTML = `<div class="pmeta" style="padding:6px 0">✓ ${esc(r.summary)}</div>`;
+      setTimeout(loadQueue, 900);
+    } else loadQueue();
+  }catch(e){
+    alert(e.message);
+    if(card) card.style.opacity = "1";
+  }
+}
+
+loadMe().then(loadQueue).catch(e => $("#who").textContent = e.message);
+loadMetros();
+loadOffers();
 </script>
 </body>
 </html>

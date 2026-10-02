@@ -55,14 +55,19 @@ fi
 
 # ── publish it, if the tunnel has been set up ───────────────
 if [ -f "$TUNNEL_CONF" ]; then
-  echo "  Publishing to justgrit.thewatsonfactor.dev…"
-  cloudflared tunnel --config "$TUNNEL_CONF" run > tunnel.log 2>&1 &
-  TUNNEL_PID=$!
-  sleep 5
-  if kill -0 "$TUNNEL_PID" 2>/dev/null; then
-    echo "  ✓ Live at https://justgrit.thewatsonfactor.dev"
+  if pgrep -f "cloudflared tunnel --config $TUNNEL_CONF run" > /dev/null 2>&1; then
+    # A connector is already up — starting a second one would just duplicate it.
+    echo "  ✓ Already live at https://justgrit.thewatsonfactor.dev"
   else
-    echo "  ✗ Tunnel failed — see tunnel.log. The app still works on this Mac."
+    echo "  Publishing to justgrit.thewatsonfactor.dev…"
+    cloudflared tunnel --config "$TUNNEL_CONF" run > tunnel.log 2>&1 &
+    TUNNEL_PID=$!
+    sleep 5
+    if kill -0 "$TUNNEL_PID" 2>/dev/null; then
+      echo "  ✓ Live at https://justgrit.thewatsonfactor.dev"
+    else
+      echo "  ✗ Tunnel failed — see tunnel.log. The app still works on this Mac."
+    fi
   fi
 else
   echo "  · Not published yet (run 'Setup web address.command' once)"

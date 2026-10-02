@@ -37,3 +37,32 @@ __pycache__/
 .pytest_cache/
 *.log
 .DS_Store
+
+# scraper resume state
+.progress_*.json
+advanced/.progress_*.json
+
+# ─── added with the full README: things that hold secrets or customer data ───
+# Backups include copies of the databases (API keys, mailbox login, every lead),
+# some named like justgrit.db.pre-sitelink that "*.db" does not catch.
+*.db.*
+*.db.gz
+backups/
+snapshots/
+media/
+imports/
+brand/
+files/
+_stage/
+_to_delete/
+.fuse_hidden*
+*.bak
+*.bak.*
+*.pre-*
+*.command.bak
+Small Business-*/
+apollo_waterfall_test.csv
+Claude outputs/
+github-profile/
+*.bak[0-9]
+*.bak[0-9].*
