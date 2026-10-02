@@ -5,7 +5,7 @@ Just Grit finds local businesses, reads their websites, writes the first email
 in the owner's own voice, sends it inside safe hours, reads the replies, and
 keeps every conversation, deal, follow-up and proposal in one place.
 
-Built by [The Watson Factor](https://thewatsonfactor.dev), San Antonio, TX.
+Built by [The Watson Factor](https://thewatsonfactor.dev), New Braunfels, TX.
 It runs two businesses from one codebase: The Watson Factor (custom software
 for local businesses) and HomeRepair Tech (home maintenance plans, sold to
 property managers, HOA boards, commercial buildings and realtors).
