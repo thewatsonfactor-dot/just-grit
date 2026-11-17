@@ -98,11 +98,15 @@ class FakeReq:
     def __init__(self, payload): self._p = payload
     async def json(self): return self._p
 
+_sms_ids = iter(range(1, 10**6))
 def sms(frm, text):
+    # Every real Telnyx message has its own id, and the webhook now drops a
+    # repeated id as a retry - so each fake text gets a fresh one.
     return asyncio.get_event_loop().run_until_complete(
         W.telnyx_sms_webhook(W.telnyx_webhook_token(), FakeReq(
             {"data": {"event_type": "message.received",
-                      "payload": {"from": {"phone_number": frm}, "text": text, "id": "m1"}}})))
+                      "payload": {"from": {"phone_number": frm}, "text": text,
+                                  "id": "m%d" % next(_sms_ids)}}})))
 
 r = sms(CALLER, "yes please, can someone come look at it tomorrow?")
 check("a reply attaches to the caller's existing lead", r["prospect_id"], p["id"])

@@ -1,5 +1,8 @@
 # What's new
 
+## 17 Nov 2026
+- Fixed: when a customer texted back (for example, answering the missed-call text), the app saved the text but then crashed, so no alert email went out and the text could be logged twice. You now get one "Text reply" email with what they wrote, and a repeated delivery of the same text is ignored.
+
 ## 27 Sep 2026
 - How you write: paste three emails (or let it read your Sent folder) and every draft gets your greeting and sign-off; the Outbox flags a sentence far longer than you'd write. Setup → Your business.
 - The Outbox notices what you cut from drafts and, after the same phrase twice, offers one tap to add it to words you never say.
