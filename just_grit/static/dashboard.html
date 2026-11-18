@@ -1221,6 +1221,18 @@
           <input type="text" id="soImg" placeholder="Pick a picture above, or paste a link">
         </div>
         <div class="field">
+          <label class="f" for="soVid">Video for a Reel or Short <span class="cap" style="margin:0">(MP4, vertical 9:16, under 3 minutes for a Short. Use a picture or a video, not both)</span></label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="text" id="soVid" placeholder="Upload an MP4, or paste its Just Grit link" style="flex:1;min-width:220px">
+            <label class="btn ghost" style="margin:0;cursor:pointer">Upload video<input type="file" id="soVidFile" accept="video/mp4" hidden></label>
+          </div>
+          <div class="cap" id="soVidMsg" style="margin-top:4px"></div>
+        </div>
+        <div class="field" id="soYtWrap">
+          <label class="f" for="soYtTitle">YouTube title <span class="cap" style="margin:0">(needed for a Short; #Shorts is added for you. The post text becomes the description)</span></label>
+          <input type="text" id="soYtTitle" maxlength="100" placeholder="What happens in this clip, in a few words">
+        </div>
+        <div class="field">
           <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:6px">
             <label class="f" for="soText" style="margin:0">Post text</label>
             <button class="btn" id="soWrite" style="margin-left:auto;padding:6px 12px;font-size:13px">Write it for me</button>
@@ -1289,6 +1301,7 @@
           <input type="datetime-local" id="sqWhen"></div>
         <label style="display:flex;gap:6px;align-items:center;padding-bottom:10px"><input type="checkbox" id="sqFb" checked> Facebook</label>
         <label style="display:flex;gap:6px;align-items:center;padding-bottom:10px"><input type="checkbox" id="sqIg" checked> Instagram</label>
+        <label style="display:flex;gap:6px;align-items:center;padding-bottom:10px"><input type="checkbox" id="sqYt"> YouTube Short</label>
         <button class="btn" id="sqGo" style="margin-bottom:2px">Schedule</button>
         <span id="sqMsg" class="cap" style="margin:0 0 10px"></span>
       </div>
@@ -1590,6 +1603,28 @@
             <span id="fb_msg" class="cap" style="margin:0"></span>
           </div>
           <div id="fb_pages" style="margin-top:10px"></div>
+        </div>
+        <div class="sucard" style="margin-top:14px">
+          <div class="sucard-h"><b>YouTube Shorts</b> <span id="yt_status" class="cap" style="margin:0 0 0 8px"></span></div>
+          <p class="setupnote">YouTube uses your own Google Cloud project, so nobody else's app sits between you and
+            your channel. In <b>console.cloud.google.com</b>: make a project, turn on <b>YouTube Data API v3</b>,
+            fill in the OAuth consent screen (add yourself as a test user), then <i>Credentials → Create
+            credentials → OAuth client ID → Web application</i> with this exact address under
+            <i>Authorized redirect URIs</i>:</p>
+          <div class="field"><input type="text" id="yt_redirect" readonly onclick="this.select()"></div>
+          <div class="field"><label class="f">Client ID</label><input type="text" id="yt_client_id" placeholder="1234-abc.apps.googleusercontent.com" autocomplete="off"></div>
+          <div class="field"><label class="f">Client secret</label><input type="password" id="yt_client_secret" placeholder="type to set" autocomplete="off"></div>
+          <div class="field"><label class="f">Shorts go up as</label>
+            <select id="yt_privacy"><option value="public">Public</option><option value="unlisted">Unlisted (good for a first test)</option><option value="private">Private</option></select></div>
+          <div class="acts">
+            <button class="act" id="yt_connect">Save and connect YouTube</button>
+            <button class="act" id="yt_disconnect" hidden>Disconnect</button>
+            <span id="yt_msg" class="cap" style="margin:0"></span>
+          </div>
+          <p class="setupnote">Sign in to Google as the account that owns the channel (for Southern Grit TV, pick the
+            channel when Google asks). While the consent screen is in <i>Testing</i>, Google drops the key after
+            7 days; publish the consent screen to keep it. Until Google approves your project's API audit,
+            every upload is held as private by YouTube itself.</p>
         </div>
         <p class="setupnote">Pictures for posts are set up in the <b>Social</b> tab under
           <i>Make a picture</i> — your own account, about a cent each.</p>
@@ -3329,7 +3364,7 @@ async function sqLoad(){
       + rows.map(x => `<tr>
           <td style="white-space:nowrap">${esc(new Date(x.when_at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}</td>
           <td>${esc((x.networks||[]).join(" + "))}</td>
-          <td class="cap" style="margin:0;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.text)}">${x.image_url ? "🖼 " : ""}${esc(x.text)}</td>
+          <td class="cap" style="margin:0;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.text)}">${x.video_url ? "🎬 " : x.image_url ? "🖼 " : ""}${esc(x.title || x.text)}</td>
           <td style="color:${color(x.state)}">${esc(x.state)}${x.error ? ` <span class="cap" title="${esc(x.error)}">ⓘ</span>` : ""}</td>
           <td>${x.state === "scheduled" ? `<button class="act" data-sqcancel="${x.id}">Cancel</button>` : ""}</td>
         </tr>`).join("") + `</tbody></table>`;
@@ -3343,11 +3378,13 @@ $("#sqGo").onclick = async () => {
   const b = $("#sqGo"), msg = $("#sqMsg");
   const local = $("#sqWhen").value;
   if(!local){ msg.textContent = "Pick a date and time."; return; }
-  const nets = [$("#sqFb").checked && "facebook", $("#sqIg").checked && "instagram"].filter(Boolean);
+  const nets = [$("#sqFb").checked && "facebook", $("#sqIg").checked && "instagram",
+                $("#sqYt").checked && "youtube"].filter(Boolean);
   b.disabled = true; msg.textContent = "Scheduling…";
   try{
     const r = await api("/api/social/queue", {method:"POST", body: JSON.stringify({
       networks: nets, text: $("#soText").value, image_url: $("#soImg").value.trim(),
+      video_url: $("#soVid").value.trim(), title: $("#soYtTitle").value.trim(),
       link: $("#soLink").value.trim(), when: new Date(local).toISOString(),
       campaign_id: +$("#cpSel").value || null, draft_id: SO_DRAFT_ID})});
     if(SO_DRAFT_ID){ soEditing(null); drLoad(); }
@@ -3361,10 +3398,11 @@ $("#sqGo").onclick = async () => {
 async function soHealth(){
   const el = $("#socialHealth");
   try{
-    const [m, f, i] = await Promise.all([
+    const [m, f, i, y] = await Promise.all([
       api("/api/media/check").catch(e=>({ok:false,problem:String(e)})),
       api("/api/facebook/status").catch(()=>({connected:false})),
-      api("/api/instagram/status").catch(()=>({connected:false}))
+      api("/api/instagram/status").catch(()=>({connected:false})),
+      api("/api/youtube/status").catch(()=>({connected:false}))
     ]);
     /* Plain words. The API reasons (page token vs user token, Business vs
        Creator account) live on the Setup page where you'd act on them -
@@ -3374,7 +3412,9 @@ async function soHealth(){
     h += pill(m.ok, m.ok ? "Pictures can be posted" : "Pictures can't be fetched by Meta");
     h += pill(f.connected && !f.expired, f.connected ? (f.expired ? "Facebook token expired - reconnect" : "Facebook connected") : "Facebook not connected");
     h += pill(i.connected, i.connected ? "Instagram connected" + (i.quota ? ` · ${i.quota.left} of ${i.quota.cap} posts left today` : "") : "Instagram not connected");
+    h += pill(y.connected, y.connected ? "YouTube connected" + (y.channel ? ` · ${esc(y.channel)}` : "") + (y.privacy && y.privacy !== "public" ? ` · Shorts go up ${esc(y.privacy)}` : "") : "YouTube not connected");
     if(!(f.connected && i.connected) || f.expired) h += `<button class="act" data-goto="setup" data-gosec="social">${f.expired ? "Reconnect" : "Connect"} Facebook &amp; Instagram</button>`;
+    else if(!y.connected) h += `<button class="act" data-goto="setup" data-gosec="social">Connect YouTube</button>`;
     if(f.broken) h += `<div class="notice bad" style="margin:8px 0 0">${esc(f.broken)}</div>`;
     h += `</div>`;
     if(!m.ok) h += `<div style="margin-top:10px;color:var(--bad)">${esc(m.problem || "")}</div>
@@ -3681,6 +3721,7 @@ $("#soIgStage").addEventListener("click", async ()=>{
   try{
     const r = await api("/api/instagram/stage", {method:"POST", body:JSON.stringify(
       {caption:$("#soText").value, image_url:$("#soImg").value.trim(),
+       video_url:$("#soVid").value.trim(),
        link:$("#soLink").value.trim(), campaign_id: +$("#cpSel").value || null})});
     SO_CONTAINER = r.container_id;
     $("#soIgRelease").disabled = false;
@@ -6027,7 +6068,7 @@ async function loadSetup(){
   loadOffers();
   loadWorkspaces();
   loadSetupStatus();
-  loadFbStatus();
+  loadFbStatus(); loadYtStatus();
   loadDataSection();
   loadVoice();
 }
@@ -6080,6 +6121,60 @@ async function loadSetupStatus(){
   if(!$$("#su_nav button").some(b => b.dataset.sec === want)) want = "business";
   suShow(want);
 }
+
+/* ═══ Video for Reels and Shorts: raw bytes to /api/media, like pictures ═══ */
+$("#soVidFile") && ($("#soVidFile").onchange = async (ev) => {
+  const f = ev.target.files && ev.target.files[0], msg = $("#soVidMsg");
+  if(!f) return;
+  if(f.size > 250 * 1024 * 1024){ msg.textContent = "That file is over 250 MB. Export it smaller first."; return; }
+  msg.textContent = `Uploading ${(f.size/1e6).toFixed(1)} MB…`;
+  try{
+    const r = await fetch("/api/media", {method:"POST", headers:{"content-type":"application/octet-stream"}, body:f});
+    const t = await r.text(); let d; try{ d = JSON.parse(t); }catch{ d = {detail:t}; }
+    if(!r.ok) throw new Error(d.detail || ("Error " + r.status));
+    if(d.kind !== "video/mp4") throw new Error("That isn't an MP4 video.");
+    $("#soVid").value = d.url || ("/welcome/m/" + d.id);
+    msg.textContent = "Uploaded. " + (d.warning || "Ready to schedule as a Reel and a Short.");
+  }catch(e){ msg.textContent = humanError(e); }
+  ev.target.value = "";
+});
+
+/* ═══ YouTube: the owner's own Google Cloud client, connected by Google's sign-in ═══ */
+async function loadYtStatus(){
+  const box = $("#yt_status"); if(!box) return;
+  try{
+    const y = await api("/api/youtube/status");
+    $("#yt_redirect").value = y.redirect_uri || "";
+    $("#yt_privacy").value = y.privacy || "public";
+    if(ME){ $("#yt_client_id").value = ME.yt_client_id || "";
+            $("#yt_client_secret").placeholder = ME.has_yt_client_secret ? "saved — type to replace" : "type to set"; }
+    box.innerHTML = y.connected
+      ? `<b style="color:var(--good)">connected</b>${y.channel ? " to " + esc(y.channel) : ""}`
+      : `<b style="color:var(--warning)">not connected</b>`;
+    $("#yt_disconnect").hidden = !y.connected;
+    $("#yt_connect").textContent = y.connected ? "Reconnect YouTube" : "Save and connect YouTube";
+  }catch(e){ box.textContent = humanError(e); }
+}
+$("#yt_privacy") && ($("#yt_privacy").onchange = async () => {
+  try{ await api("/api/youtube/privacy", {method:"POST", body: JSON.stringify({privacy: $("#yt_privacy").value})});
+       $("#yt_msg").textContent = "Saved."; }
+  catch(e){ $("#yt_msg").textContent = humanError(e); }
+});
+$("#yt_connect") && ($("#yt_connect").onclick = async () => {
+  const id = $("#yt_client_id").value.trim(), sec = $("#yt_client_secret").value.trim(), msg = $("#yt_msg");
+  if(!id){ msg.textContent = "Paste the client ID first."; return; }
+  if(!sec && !(ME && ME.has_yt_client_secret)){ msg.textContent = "Paste the client secret first."; return; }
+  try{
+    await api("/api/settings", {method:"POST", body: JSON.stringify(Object.assign({yt_client_id: id}, sec ? {yt_client_secret: sec} : {}))});
+    $("#yt_client_secret").value = "";
+    location.href = "/api/youtube/connect";      // Google's own sign-in page, then back here
+  }catch(e){ msg.textContent = humanError(e); }
+});
+$("#yt_disconnect") && ($("#yt_disconnect").onclick = async () => {
+  if(!(await ask("Disconnect YouTube? Scheduled Shorts will fail until you connect again."))) return;
+  try{ await api("/api/youtube/disconnect", {method:"POST", body:"{}"}); loadYtStatus(); }
+  catch(e){ $("#yt_msg").textContent = humanError(e); }
+});
 
 /* ═══ Facebook & Instagram: connect from the app, not the API ═══ */
 async function loadFbStatus(){

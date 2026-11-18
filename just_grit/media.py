@@ -32,6 +32,12 @@ KINDS = {
 EXT_TYPE = {".jpg": "image/jpeg", ".jpeg": "image/jpeg",
             ".png": "image/png", ".mp4": "video/mp4"}
 MAX_BYTES = 60 * 1024 * 1024
+# Reels and Shorts are video, and a 60-second 1080x1920 clip at a good bitrate
+# runs 40-150 MB. Instagram's Reels ceiling is 300 MB, so 250 MB leaves room.
+# Pictures keep the old 60 MB ceiling: nothing a network takes is bigger.
+# (Through a Cloudflare tunnel on the free plan a single request is capped at
+# 100 MB before it reaches this app; on the Mac itself there is no such cap.)
+VIDEO_MAX_BYTES = 250 * 1024 * 1024
 ID_RE = re.compile(r"^[0-9a-f]{64}\.(jpg|png|mp4)$")     # what we generate, exactly
 
 
@@ -61,10 +67,14 @@ def sniff(raw: bytes) -> str:
 def save(raw: bytes, data_root) -> dict:
     if not raw:
         raise MediaError("Empty file.")
-    if len(raw) > MAX_BYTES:
-        raise MediaError("File is %.1f MB; the ceiling here is %d MB."
-                         % (len(raw) / 1e6, MAX_BYTES // (1024 * 1024)))
+    if len(raw) > VIDEO_MAX_BYTES:
+        raise MediaError("File is %.1f MB; the ceiling here is %d MB for video."
+                         % (len(raw) / 1e6, VIDEO_MAX_BYTES // (1024 * 1024)))
     kind = sniff(raw)
+    cap = VIDEO_MAX_BYTES if kind == "video/mp4" else MAX_BYTES
+    if len(raw) > cap:
+        raise MediaError("File is %.1f MB; the ceiling here is %d MB for pictures."
+                         % (len(raw) / 1e6, cap // (1024 * 1024)))
     ext, _ = KINDS[kind]
     name = hashlib.sha256(raw).hexdigest() + ext
     path = store_dir(data_root) / name

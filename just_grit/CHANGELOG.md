@@ -1,5 +1,11 @@
 # What's new
 
+## 18 Nov 2026
+- Reels and Shorts without Metricool: upload an MP4 on the Social tab, give it a YouTube title, and schedule it. At that minute it goes to Instagram as a Reel and to YouTube as a Short (#Shorts added to the title).
+- Setup → Social has a YouTube card: your own Google Cloud client ID and secret, then Connect YouTube signs in with Google. Pick public, unlisted or private for every Short.
+- Videos can be up to 250 MB. Pictures stay at 60 MB.
+- Facebook video isn't wired yet; a video post to Facebook is refused with a plain message.
+
 ## 27 Sep 2026
 - How you write: paste three emails (or let it read your Sent folder) and every draft gets your greeting and sign-off; the Outbox flags a sentence far longer than you'd write. Setup → Your business.
 - The Outbox notices what you cut from drafts and, after the same phrase twice, offers one tap to add it to words you never say.

@@ -20,7 +20,7 @@ running the same sweep again skips the ZIPs it already finished (resume).
 """
 from __future__ import annotations
 
-import csv, html, io, json, os, pathlib, re, sqlite3, threading, time, uuid
+import csv, html, io, json, os, pathlib, re, secrets, sqlite3, threading, time, uuid
 import urllib.error, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
@@ -28,7 +28,7 @@ from contextlib import closing
 from datetime import datetime, timezone, timedelta
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, FileResponse, Response
+from fastapi.responses import HTMLResponse, FileResponse, Response, RedirectResponse
 from pydantic import BaseModel, Field
 
 from grit_analyzer.analyzer import analyze, analyze_batch, PLAIN_MAP, PLAIN_ORDER
@@ -49,6 +49,7 @@ import metricool as mc
 import media as mstore
 import facebook as fb
 import instagram as insta
+import youtube as yt
 import social as soc          # plain import: uvicorn runs `webapp:app`
                                  # from inside just_grit/, which is not a package
 import telnyx_calls as telnyx
@@ -440,7 +441,9 @@ def init_db(workspace: Optional[str] = None):
             c.execute("ALTER TABLE social_queue ADD COLUMN campaign_id INTEGER")
         except sqlite3.OperationalError:
             pass
-        for col in ("source", "plan_week", "slot", "kind", "stats", "stats_at"):
+        for col in ("source", "plan_week", "slot", "kind", "stats", "stats_at",
+                    # a Reel or a Short: the video, and the title YouTube needs
+                    "video_url", "title"):
             try:
                 # the week autopilot's rows: which week, which of the five slots
                 c.execute("ALTER TABLE social_queue ADD COLUMN %s TEXT DEFAULT ''" % col)
@@ -2288,6 +2291,8 @@ def me(request: Request):
         "has_imap_password": bool(setting("imap_password", "").strip()),
         "fb_app_id": setting("fb_app_id", ""),
         "has_fb_app_secret": bool(setting("fb_app_secret", "").strip()),
+        "yt_client_id": setting("yt_client_id", ""),
+        "has_yt_client_secret": bool(setting("yt_client_secret", "").strip()),
         "telnyx_webhook_url": telnyx_webhook_url(),
         "telnyx_assistant_webhook_url": telnyx_assistant_webhook_url(),
         "textback": textback_status(),
@@ -2482,6 +2487,8 @@ class Settings(BaseModel):
     referrals: Optional[str] = None            # who to point an out-of-scope caller to
     fb_app_id: Optional[str] = None                 # your Meta app - lets a pasted
     fb_app_secret: Optional[str] = None             # token become a lasting Page key
+    yt_client_id: Optional[str] = None              # your Google Cloud OAuth client -
+    yt_client_secret: Optional[str] = None          # what "Connect YouTube" signs in with
 
 
 @app.post("/api/settings")
@@ -2514,7 +2521,7 @@ def save_settings(request: Request, body: Settings):
                             % (fields["imagegen_provider"], ", ".join(imagegen.PROVIDERS)))
     for k, v in fields.items():
         if k in ("google_key", "google_key_own", "telnyx_api_key", "imap_password",
-                 "imagegen_api_key", "fb_app_secret") and not v.strip():
+                 "imagegen_api_key", "fb_app_secret", "yt_client_secret") and not v.strip():
             # /api/me never sends the key back, so the field renders blank and
             # a plain save would wipe it. Skipping empty protects that — but it
             # also made a bad key impossible to remove from inside the app.
@@ -5210,11 +5217,136 @@ def instagram_release(request: Request, body: IgReleaseBody):
         raise HTTPException(400, "Instagram is not connected.")
     try:
         if body.wait:
-            insta.wait_ready(body.container_id, tok, tries=3, delay=20)
+            # a picture is ready at once; a Reel needs Instagram to process the
+            # video first, so this waits up to three minutes and then says so
+            insta.wait_ready(body.container_id, tok, tries=9, delay=20)
         out = insta.release(ig, tok, body.container_id)
     except insta.InstagramError as e:
         raise HTTPException(400, str(e))
     return {"ok": True, "published": True, "media": out}
+
+
+# ── YouTube (Shorts) ─────────────────────────────────────────────────
+# Connecting is the standard Google sign-in: Setup sends the owner's browser
+# to Google with the client ID from THEIR Google Cloud project, Google sends
+# it back to /api/youtube/callback with a one-time code, and the code becomes
+# a refresh token kept in settings. Nothing here can post on its own: a Short
+# goes out only from a row a person scheduled, or the Publish button.
+def youtube_ready() -> bool:
+    return bool(setting("yt_client_id", "").strip() and setting("yt_client_secret", "").strip()
+                and setting("yt_refresh_token", "").strip())
+
+
+def youtube_access_token() -> str:
+    return yt.access_token(setting("yt_client_id", "").strip(),
+                           setting("yt_client_secret", "").strip(),
+                           setting("yt_refresh_token", "").strip())
+
+
+def youtube_redirect_uri(request: Request) -> str:
+    """Where Google sends the browser back. It has to match, character for
+    character, an "Authorized redirect URI" on the OAuth client - so Setup
+    shows it to copy. An explicit setting wins for unusual setups."""
+    fixed = setting("yt_redirect_uri", "").strip()
+    if fixed:
+        return fixed
+    base = public_base() or str(request.base_url)
+    return base.rstrip("/") + "/api/youtube/callback"
+
+
+@app.get("/api/youtube/status")
+def youtube_status(request: Request):
+    require_auth(request)
+    out = {"connected": youtube_ready(),
+           "has_client": bool(setting("yt_client_id", "").strip()
+                              and setting("yt_client_secret", "").strip()),
+           "channel": setting("yt_channel_title", ""),
+           "redirect_uri": youtube_redirect_uri(request),
+           "privacy": setting("yt_privacy", "").strip() or "public",
+           "how": ("Google Cloud console: create a project, enable YouTube Data API v3, "
+                   "set up the OAuth consent screen, then make an OAuth client of type "
+                   "Web application with the redirect URI shown here. Paste its client "
+                   "ID and secret in Setup and press Connect YouTube.")}
+    return out
+
+
+@app.get("/api/youtube/connect")
+def youtube_connect(request: Request):
+    """Send the owner's browser to Google's consent screen."""
+    require_auth(request)
+    if not is_owner(request):
+        raise HTTPException(403, "Only the account owner can connect a YouTube channel.")
+    cid = setting("yt_client_id", "").strip()
+    if not (cid and setting("yt_client_secret", "").strip()):
+        raise HTTPException(400, "Add the YouTube client ID and secret in Setup first.")
+    state = secrets.token_urlsafe(24)
+    set_setting("yt_oauth_state", state)
+    try:
+        return RedirectResponse(yt.auth_url(cid, youtube_redirect_uri(request), state), 302)
+    except yt.YouTubeError as e:
+        raise HTTPException(400, str(e))
+
+
+def _yt_page(title: str, body: str, ok: bool) -> HTMLResponse:
+    color = "#2e7d32" if ok else "#b3261e"
+    return HTMLResponse(
+        "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
+        "<title>%s</title><body style='font-family:system-ui;max-width:520px;margin:60px auto;"
+        "padding:0 16px'><h2 style='color:%s'>%s</h2><p>%s</p><p><a href='/'>Back to Just Grit</a></p>"
+        % (html.escape(title), color, html.escape(title), html.escape(body)),
+        status_code=200 if ok else 400)
+
+
+@app.get("/api/youtube/callback", include_in_schema=False)
+def youtube_callback(request: Request, code: str = "", state: str = "", error: str = ""):
+    """Google's redirect back. The state must be the one /connect just made,
+    used once - otherwise anyone could hand this app their own channel."""
+    require_auth(request)
+    want = setting("yt_oauth_state", "")
+    set_setting("yt_oauth_state", "")
+    if error:
+        return _yt_page("YouTube not connected", "Google said: %s" % error, False)
+    if not want or not state or not secrets.compare_digest(want, state):
+        return _yt_page("YouTube not connected",
+                        "That sign-in link was stale or not started from this app. "
+                        "Press Connect YouTube in Setup again.", False)
+    if not code:
+        return _yt_page("YouTube not connected", "Google sent no code back.", False)
+    cid, sec = setting("yt_client_id", "").strip(), setting("yt_client_secret", "").strip()
+    try:
+        tok = yt.exchange_code(cid, sec, code, youtube_redirect_uri(request))
+        ch = yt.channel(tok["access_token"])
+    except (yt.YouTubeError, KeyError) as e:
+        return _yt_page("YouTube not connected", str(e), False)
+    set_setting("yt_refresh_token", tok["refresh_token"])
+    set_setting("yt_channel_id", ch.get("id", ""))
+    set_setting("yt_channel_title", ch.get("title", ""))
+    return _yt_page("YouTube connected",
+                    "Shorts you schedule will go to %s." % (ch.get("title") or "your channel"), True)
+
+
+@app.post("/api/youtube/disconnect")
+def youtube_disconnect(request: Request):
+    require_auth(request)
+    for k in ("yt_refresh_token", "yt_channel_id", "yt_channel_title"):
+        set_setting(k, "")
+    return {"ok": True}
+
+
+class YtPrivacyBody(BaseModel):
+    privacy: str
+
+
+@app.post("/api/youtube/privacy")
+def youtube_privacy(request: Request, body: YtPrivacyBody):
+    """public / unlisted / private for every Short from here on. Unlisted is a
+    sensible first week: the post goes through end to end and nobody sees it."""
+    require_auth(request)
+    p = (body.privacy or "").strip().lower()
+    if p not in yt.PRIVACY:
+        raise HTTPException(400, "public, unlisted or private.")
+    set_setting("yt_privacy", p)
+    return {"ok": True, "privacy": p}
 
 
 # ── media ────────────────────────────────────────────────────────────
@@ -6801,6 +6933,8 @@ class QueueBody(BaseModel):
     when: str                       # ISO 8601 with offset, or UTC 'Z'
     campaign_id: Optional[int] = None
     draft_id: Optional[int] = None  # a saved post being scheduled - it becomes this row
+    video_url: str = ""             # a Reel on Instagram, a Short on YouTube
+    title: str = ""                 # YouTube only - the Short's title
 
 
 def _parse_when(s: str) -> datetime:
@@ -6818,7 +6952,46 @@ def social_connected() -> dict:
                              setting("fb_page_token", "").strip()),
             "instagram": bool(setting("ig_user_id", "").strip() and
                               (setting("ig_token", "").strip() or
-                               setting("fb_page_token", "").strip()))}
+                               setting("fb_page_token", "").strip())),
+            "youtube": youtube_ready()}
+
+
+SOCIAL_NETWORKS = ("facebook", "instagram", "youtube")
+
+
+def own_media_path(url: str):
+    """The file behind a media URL this app handed out (/welcome/m/<id> or
+    /media/<id>), or None. YouTube takes bytes, not a URL, so a Short has to
+    be a video that lives in this app's own media folder."""
+    name = (url or "").strip().rstrip("/").rsplit("/", 1)[-1]
+    try:
+        path, kind = mstore.resolve(name, DATA)
+    except mstore.MediaError:
+        return None
+    return path if kind == "video/mp4" else None
+
+
+def social_media_problems(nets: list, image_url: str, video_url: str, title: str) -> list:
+    """What stops this picture/video/title pair going to these networks, in
+    words. Runs before soc.check_post, which knows captions and formats but
+    not which network can take a video from this app."""
+    probs = []
+    image_url, video_url = (image_url or "").strip(), (video_url or "").strip()
+    if video_url and image_url:
+        probs.append("Pick a picture or a video for this post, not both.")
+    if "facebook" in nets and video_url:
+        probs.append("Facebook video isn't wired up yet - post the video to Instagram "
+                     "and YouTube, or use a picture for Facebook.")
+    if "youtube" in nets:
+        if not video_url:
+            probs.append("YouTube needs a video.")
+        elif not own_media_path(video_url):
+            probs.append("YouTube takes the file itself, so the video has to be uploaded "
+                         "to Just Grit first (the Upload video button), not linked from "
+                         "somewhere else.")
+        if not (title or "").strip():
+            probs.append("YouTube needs a title.")
+    return probs
 
 
 @app.post("/api/social/queue")
@@ -6828,9 +7001,9 @@ def social_queue_add(request: Request, body: QueueBody):
     and never anything else."""
     require_auth(request)
     nets = [n.strip().lower() for n in (body.networks or []) if n and n.strip()]
-    nets = [n for n in nets if n in ("facebook", "instagram")]
+    nets = [n for n in nets if n in SOCIAL_NETWORKS]
     if not nets:
-        raise HTTPException(400, "Pick at least one of Facebook or Instagram.")
+        raise HTTPException(400, "Pick at least one of Facebook, Instagram or YouTube.")
     conn = social_connected()
     off = [n for n in nets if not conn[n]]
     if off:
@@ -6843,13 +7016,17 @@ def social_queue_add(request: Request, body: QueueBody):
                                  "for right now, use the Post buttons.")
     if when > datetime.now(timezone.utc) + timedelta(days=90):
         raise HTTPException(400, "That is more than 90 days out.")
-    media = [body.image_url] if body.image_url else []
-    chk = soc.check_post(nets, body.text, media)
+    probs = social_media_problems(nets, body.image_url, body.video_url, body.title)
+    if probs:
+        raise HTTPException(400, " ".join(probs))
+    media = [u.strip() for u in (body.image_url, body.video_url) if u and u.strip()]
+    chk = soc.check_post(nets, body.text, media, body.title)
     if not chk["ok"]:
         probs = "; ".join(p for n in chk["blocked"] for p in chk["by_network"][n]["problems"])
         raise HTTPException(400, probs)
     base = public_base()
-    if body.image_url and base and body.image_url.startswith(base):
+    fetched = [u for u in media if not (u == body.video_url.strip() and nets == ["youtube"])]
+    if base and any(u.startswith(base) for u in fetched):
         mc_ = media_check(request)
         if not mc_["ok"]:
             raise HTTPException(400, mc_["problem"])
@@ -6861,15 +7038,18 @@ def social_queue_add(request: Request, body: QueueBody):
         if draft:
             # the saved post becomes the scheduled one - no leftover copy in "Saved posts"
             c.execute("UPDATE social_queue SET networks=?, text=?, image_url=?, link=?, first_comment=?, "
-                      "when_at=?, state='scheduled', campaign_id=? WHERE id=?",
+                      "when_at=?, state='scheduled', campaign_id=?, video_url=?, title=? WHERE id=?",
                       (json.dumps(nets), body.text.strip(), body.image_url.strip(), link,
-                       body.first_comment.strip(), when.isoformat(timespec="seconds"), cid[0], draft["id"]))
+                       body.first_comment.strip(), when.isoformat(timespec="seconds"), cid[0],
+                       body.video_url.strip(), body.title.strip(), draft["id"]))
             qid = draft["id"]
         else:
             c.execute("INSERT INTO social_queue (networks, text, image_url, link, first_comment, "
-                      "when_at, state, created_at, campaign_id) VALUES (?,?,?,?,?,?, 'scheduled', ?, ?)",
+                      "when_at, state, created_at, campaign_id, video_url, title) "
+                      "VALUES (?,?,?,?,?,?, 'scheduled', ?, ?, ?, ?)",
                       (json.dumps(nets), body.text.strip(), body.image_url.strip(), link,
-                       body.first_comment.strip(), when.isoformat(timespec="seconds"), now(), cid[0]))
+                       body.first_comment.strip(), when.isoformat(timespec="seconds"), now(), cid[0],
+                       body.video_url.strip(), body.title.strip()))
             qid = c.execute("SELECT last_insert_rowid()").fetchone()[0]
         c.commit()
     return {"ok": True, "id": qid, "when": when.isoformat(timespec="seconds"),
@@ -6909,6 +7089,14 @@ def _social_stats_for(row: dict) -> dict:
                 out["instagram"] = insta.media_stats(mid, tok)
             except Exception as e:
                 out["instagram"] = {"error": str(e)[:160]}
+    ytr = (res.get("youtube") or {})
+    if ytr.get("ok"):
+        vid = (ytr.get("video") or {}).get("id") or ""
+        if vid and youtube_ready():
+            try:
+                out["youtube"] = yt.video_stats(youtube_access_token(), vid)
+            except Exception as e:
+                out["youtube"] = {"error": str(e)[:160]}
     return out
 
 
@@ -7207,17 +7395,41 @@ def publish_queued(c, row: dict) -> dict:
                 tok = setting("ig_token", "").strip() or setting("fb_page_token", "").strip()
                 if not (ig and tok):
                     raise insta.InstagramError("Instagram is no longer connected.")
-                if not row["image_url"]:
-                    raise insta.InstagramError("Instagram needs a picture.")
+                video = (row.get("video_url") or "").strip()
+                if not row["image_url"] and not video:
+                    raise insta.InstagramError("Instagram needs a picture or a video.")
                 cap = with_link(row["text"], ig_link_text(row["link"])) if row["link"] else row["text"]
-                st = insta.stage(ig, tok, image_url=row["image_url"], caption=cap)
-                cid = st.get("container_id") or st.get("id")
-                insta.wait_ready(cid, tok, tries=6, delay=10)
+                if video:
+                    # A Reel. Instagram has to fetch and transcode it before it
+                    # can be published - minutes, not seconds - so it is given
+                    # up to ten (Meta's own advice is to poll about once a minute).
+                    st = insta.stage(ig, tok, video_url=video, caption=cap, media_type="REELS")
+                    cid = st.get("container_id") or st.get("id")
+                    insta.wait_ready(cid, tok, tries=20, delay=30, sleep=_social_sleep)
+                else:
+                    st = insta.stage(ig, tok, image_url=row["image_url"], caption=cap)
+                    cid = st.get("container_id") or st.get("id")
+                    insta.wait_ready(cid, tok, tries=6, delay=10, sleep=_social_sleep)
                 res = insta.release(ig, tok, cid)
-                out[n] = {"ok": True, "media": res}
+                out[n] = {"ok": True, "media": res, "reel": bool(video)}
+            elif n == "youtube":
+                path = own_media_path(row.get("video_url") or "")
+                if not path:
+                    raise yt.YouTubeError("The video for this Short isn't in Just Grit's "
+                                          "media folder any more.")
+                res = yt.upload(youtube_access_token(), path, row.get("title") or "",
+                                description=row["text"] or "",
+                                privacy=setting("yt_privacy", "").strip() or "public")
+                out[n] = {"ok": True, "video": res}
         except Exception as e:
             out[n] = {"ok": False, "error": "%s: %s" % (type(e).__name__, str(e)[:300])}
     return out
+
+
+def _social_sleep(seconds: float) -> None:
+    """The wait between Instagram processing checks. A name of its own so a
+    test can make a ten-minute Reel wait instant."""
+    time.sleep(seconds)
 
 
 def social_publish_due(slug: str) -> int:
