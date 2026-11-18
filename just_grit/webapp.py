@@ -11407,6 +11407,49 @@ def _call_alert(number: str, answered: bool, *, texted=None, why: str = "",
         print("call alert skipped: %s" % str(e)[:200])
 
 
+def _text_alert(number: str, text: str, bucket: str = "") -> None:
+    """Email the owner that somebody texted this workspace's number back.
+
+    The warmest thing that reaches this app is a person answering the
+    missed-call text, and it used to stop at a row in sms_log. Same switch
+    (`call_alert_off`) and same address as the call alert, but worded as a
+    text, not a call. Never raises: the webhook that calls it must answer
+    Telnyx with a 200 whatever happens here, or Telnyx sends it again."""
+    try:
+        if setting("call_alert_off", "") == "1":
+            return
+        to = (setting("call_alert_email", "") or _primary_setting("sender_email", "")).strip()
+        if not to:
+            return
+        n = telnyx.to_e164(number) or (number or "")
+        d = re.sub(r"\D", "", n)[-10:]
+        shown = "(%s) %s-%s" % (d[:3], d[3:6], d[6:]) if len(d) == 10 else (n or "unknown number")
+        who = ""
+        with closing(db()) as c:
+            pid = find_prospect_by_phone(c, n) if n else None
+            if pid:
+                r = c.execute("SELECT company FROM prospects WHERE id=?", (pid,)).fetchone()
+                who = ((r["company"] if r else "") or "").strip()
+        info = ws.info()
+        biz = info.get("short") or info.get("name") or "Just Grit"
+        when = datetime.now(workspace_tz()).strftime("%a %I:%M %p").replace(" 0", " ")
+        named = who and not who.startswith("Inbound caller")
+        lines = ["Someone texted the %s number." % biz, "",
+                 "From:    %s%s" % (shown, ("  (%s)" % who if named else "")),
+                 "When:    %s" % when]
+        if bucket:
+            lines += ["Sorted:  %s" % bucket.replace("_", " ")]
+        lines += ["", "What they wrote:", (text or "(no text)")[:600],
+                  "", "They are at the top of today's list."]
+        link = public_base()
+        if link:
+            lines += ["", "Open Just Grit: %s" % link]
+        subject = "Text reply - %s - %s" % (biz, who if named else shown)
+        POOL.submit(ws.carry(_send_call_alert, to, subject, "\n".join(lines)))
+    except Exception as e:
+        print("text alert skipped: %s" % str(e)[:200])
+
+
 def handle_inbound_call_event(event_type: str, call: dict) -> dict:
     """One inbound-call webhook event. Returns what it did, for the tests.
 
@@ -11551,9 +11594,16 @@ async def telnyx_sms_webhook(token: str, request: Request):
     n = telnyx.to_e164(frm)
     if not n:
         return {"ok": True}
+    mid = msg.get("id") or ""
     with closing(db()) as c:
+        # Telnyx sends the same event again whenever it doesn't get a 200
+        # back. One text is one row, one lead touch and one alert, however
+        # many times it arrives.
+        if mid and c.execute("SELECT 1 FROM sms_log WHERE direction='in' AND message_id=?",
+                             (mid,)).fetchone():
+            return {"ok": True, "duplicate": True}
         c.execute("INSERT INTO sms_log (direction, number, text, message_id, at) VALUES ('in',?,?,?,?)",
-                  (n, text, msg.get("id") or "", now()))
+                  (n, text, mid, now()))
         if tb.is_stop(text):
             c.execute("INSERT INTO sms_optouts (number, at, source) VALUES (?,?,'sms:stop') "
                       "ON CONFLICT(number) DO NOTHING", (n, now()))
@@ -11567,9 +11617,9 @@ async def telnyx_sms_webhook(token: str, request: Request):
         # warmer, and until now it stopped at a row in sms_log.
         pid = inbound_lead(c, n, kind="sms", outcome="reply",
                            note="Texted back: " + (text[:300] or "(no text)"), hot=True)
-        srt = sort_inbound(c, pid, text, channel="sms")
+        srt = sort_inbound(c, pid, text, channel="sms") or {}
         c.commit()
-    _call_alert(phone, True, ai_note=("%s%s" % (name + ": " if name else "", note))[:600])
+    _text_alert(n, text, srt.get("bucket", ""))
     return {"ok": True, "prospect_id": pid, "bucket": srt.get("bucket", "")}
 
 
